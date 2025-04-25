@@ -794,6 +794,7 @@ reg [31:0] scoreboard_r;
 reg [31:0] v_scoreboard_r; // new scoreboard for tracking vector registers v0-v31 
 reg        pipe1_mux_lsu_r;
 reg        pipe1_mux_mul_r;
+reg        pipe1_mux_v_alu_r; // new mux for schedule vector instructions 
 
 // Check instructions can be issued in the second execution unit
 wire pipe1_ok_w      = issue_b_exec_w | issue_b_branch_w | issue_b_lsu_w | issue_b_mul_w | issue_b_v_alu_w; // new, v_alu added
@@ -803,6 +804,7 @@ wire pipe1_ok_w      = issue_b_exec_w | issue_b_branch_w | issue_b_lsu_w | issue
 wire dual_issue_ok_w =   enable_dual_issue_w &&  // Second pipe switched on
                          pipe1_ok_w &&           // Instruction 2 is possible on second exec unit
                         (((issue_a_exec_w | issue_a_lsu_w | issue_a_mul_w) && issue_b_exec_w)   ||
+                         ((issue_a_exec_w | issue_a_lsu_w | issue_a_mul_w) && issue_b_v_alu_w)  || // new, v_alu added
                          ((issue_a_exec_w | issue_a_lsu_w | issue_a_mul_w) && issue_b_branch_w) ||
                          ((issue_a_exec_w | issue_a_mul_w) && issue_b_lsu_w)                    ||
                          ((issue_a_exec_w | issue_a_lsu_w) && issue_b_mul_w)
@@ -818,6 +820,7 @@ begin
     v_scoreboard_r       = 32'b0; // new
     pipe1_mux_lsu_r      = 1'b0;
     pipe1_mux_mul_r      = 1'b0;
+    pipe1_mux_v_alu_r    = 1'b0; // new
 
     // Execution units with >= 2 cycle latency
     if (SUPPORT_LOAD_BYPASS == 0)
@@ -894,7 +897,8 @@ begin
         opcode_b_issue_r  = 1'b1;
         opcode_b_accept_r = 1'b1;
         pipe1_mux_lsu_r   = issue_b_lsu_w;
-        pipe1_mux_mul_r   = issue_b_mul_w;
+        pipe1_mux_mul_r   = issue_b_mul_w; 
+        pipe1_mux_v_alu_r = issue_b_v_alu_w; // new
 
         if (opcode_b_accept_r && issue_b_sb_alloc_w && (|issue_b_rd_idx_w))
             scoreboard_r[issue_b_rd_idx_w] = 1'b1;
@@ -910,7 +914,7 @@ assign exec0_opcode_valid_o = opcode_a_issue_r;
 assign mul_opcode_valid_o   = enable_muldiv_w & (pipe1_mux_mul_r ? opcode_b_issue_r : opcode_a_issue_r);
 assign div_opcode_valid_o   = enable_muldiv_w & (opcode_a_issue_r);
 assign interrupt_inhibit_o  = csr_pending_q || issue_a_csr_w;
-assign v_alu_opcode_valid_o = enable_vector_operations & (opcode_a_issue_r); // new // EMO - Check for opcode from issue a
+assign v_alu_opcode_valid_o = enable_vector_operations & (pipe1_mux_v_alu_r ? opcode_b_issue_r : opcode_a_issue_r); // new // EMO - Check
 
 assign exec1_opcode_valid_o = opcode_b_issue_r;
 
@@ -1277,20 +1281,19 @@ assign csr_opcode_invalid_o     = opcode_a_issue_r && issue_a_invalid_w;
 //-------------------------------------------------------------
 // Vector ALU (VALU) unit
 //-------------------------------------------------------------
-assign v_alu_opcode_valid_o     = opcode_a_issue_r & ~take_interrupt_i;
-assign v_alu_opcode_opcode_o    = opcode0_opcode_o;
-assign v_alu_opcode_pc_o        = opcode0_pc_o;
-assign v_alu_opcode_vd_idx_o    = opcode0_vd_idx_o;
-assign v_alu_opcode_va_idx_o    = opcode0_va_idx_o;
-assign v_alu_opcode_vb_idx_o    = opcode0_vb_idx_o;
-assign v_alu_opcode_ra_idx_o    = opcode0_ra_idx_o;
-assign v_alu_opcode_rb_idx_o    = opcode0_rb_idx_o;
-assign v_alu_opcode_ra_operand_o= opcode0_ra_operand_o; // new
-assign v_alu_opcode_rb_operand_o= opcode0_rb_operand_o; // new
-assign v_alu_opcode_va_operand_o= opcode0_va_operand_o;
-assign v_alu_opcode_vb_operand_o= opcode0_vb_operand_o;
-assign v_alu_opcode_vmask_operand_o= opcode0_vmask_operand_o;
-assign v_alu_opcode_invalid_o    = opcode_a_issue_r && issue_a_invalid_w;
+assign v_alu_opcode_opcode_o    = pipe1_mux_v_alu_r ? opcode1_opcode_o : opcode0_opcode_o;
+assign v_alu_opcode_pc_o        = pipe1_mux_v_alu_r ? opcode1_pc_o     : opcode0_pc_o;
+assign v_alu_opcode_vd_idx_o    = pipe1_mux_v_alu_r ? opcode1_vd_idx_o : opcode0_vd_idx_o;
+assign v_alu_opcode_va_idx_o    = pipe1_mux_v_alu_r ? opcode1_va_idx_o : opcode0_va_idx_o;
+assign v_alu_opcode_vb_idx_o    = pipe1_mux_v_alu_r ? opcode1_vb_idx_o : opcode0_vb_idx_o;
+assign v_alu_opcode_ra_idx_o    = pipe1_mux_v_alu_r ? opcode1_ra_idx_o : opcode0_ra_idx_o;
+assign v_alu_opcode_rb_idx_o    = pipe1_mux_v_alu_r ? opcode1_rb_idx_o : opcode0_rb_idx_o;
+assign v_alu_opcode_ra_operand_o= pipe1_mux_v_alu_r ? opcode1_ra_operand_o : opcode0_ra_operand_o;
+assign v_alu_opcode_rb_operand_o= pipe1_mux_v_alu_r ? opcode1_rb_operand_o : opcode0_rb_operand_o;
+assign v_alu_opcode_va_operand_o= pipe1_mux_v_alu_r ? opcode1_va_operand_o : opcode0_va_operand_o;
+assign v_alu_opcode_vb_operand_o= pipe1_mux_v_alu_r ? opcode1_vb_operand_o : opcode0_vb_operand_o;
+assign v_alu_opcode_vmask_operand_o= pipe1_mux_v_alu_r ? opcode1_vmask_operand_o : opcode0_vmask_operand_o;
+assign v_alu_opcode_invalid_o    = 1'b0;
 
 //-------------------------------------------------------------
 // Checker Interface
