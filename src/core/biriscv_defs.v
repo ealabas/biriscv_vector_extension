@@ -102,6 +102,16 @@
 
 // load vector instructions
 
+// Unit-stride vector loads (vle eew) - RVV spec: opcode 0000111, width in funct3
+`define INST_VLE8_V      32'h00000007
+`define INST_VLE8_V_MASK 32'h0000707f
+`define INST_VLE16_V     32'h00005007
+`define INST_VLE16_V_MASK 32'h0000707f
+`define INST_VLE32_V     32'h00006007
+`define INST_VLE32_V_MASK 32'h0000707f
+`define INST_VLE64_V     32'h00007007
+`define INST_VLE64_V_MASK 32'h0000707f
+
 // vl1re8.v
 // loads to the 1 vector register, each element is 8 bits.
 `define INST_VL1RE8_V 32'h02800007 // Opcode for vl1re8.v
@@ -183,6 +193,16 @@
 `define INST_VL8RE64_V_MASK 32'hfff0707f
 
 // store vector instructions
+
+// Unit-stride vector stores (vse eew) - RVV spec: opcode 0100111, width in funct3
+`define INST_VSE8_V      32'h00000027
+`define INST_VSE8_V_MASK 32'h0000707f
+`define INST_VSE16_V     32'h00005027
+`define INST_VSE16_V_MASK 32'h0000707f
+`define INST_VSE32_V     32'h00006027
+`define INST_VSE32_V_MASK 32'h0000707f
+`define INST_VSE64_V     32'h00007027
+`define INST_VSE64_V_MASK 32'h0000707f
 
 // vs1r.v
 // stores 1 vector register to the memory.

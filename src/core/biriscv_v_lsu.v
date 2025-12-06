@@ -32,7 +32,6 @@ module biriscv_v_lsu
     ,parameter MEM_CACHE_ADDR_MAX = 32'hffffffff
     ,parameter VLEN              = 128
     ,parameter VLEN_BYTES        = VLEN / 8
-    ,parameter MAX_BURST_LEN     = 8 
 )
 //-----------------------------------------------------------------
 // Ports
@@ -93,83 +92,64 @@ module biriscv_v_lsu
 //-----------------------------------------------------------------
 // Local Parameters
 //-----------------------------------------------------------------
-// LSU States
-localparam STATE_IDLE = 3'b000;
-localparam STATE_LOAD_REQ = 3'b001;
-localparam STATE_LOAD_RESP = 3'b010;
-localparam STATE_STORE_REQ = 3'b001;
-localparam STATE_COMPLETE = 3'b100;
-localparam STATE_ERROR = 3'b101;
+localparam STATE_IDLE     = 3'd0;
+localparam STATE_REQ      = 3'd1;
+localparam STATE_WAIT     = 3'd2;
+localparam STATE_COMPLETE = 3'd3;
+localparam STATE_ERROR    = 3'd4;
 
-// Element Width
-localparam WIDTH_8B = 2'b00;
-localparam WIDTH_16B = 2'b01;
-localparam WIDTH_32B = 2'b10;
-localparam WIDTH_64B = 2'b11; 
+localparam WIDTH_8B  = 2'd0;
+localparam WIDTH_16B = 2'd1;
+localparam WIDTH_32B = 2'd2;
+localparam WIDTH_64B = 2'd3;
+
+localparam BEAT_COUNT = (VLEN_BYTES / 4); // 128-bit vector over 32-bit bus = 4 beats
 
 //-----------------------------------------------------------------
 // Vector Operation Decode
 //-----------------------------------------------------------------
 // Loads
-wire is_vl1re8_v = vector_op_i && ((opcode0_opcode_i & `INST_VL1RE8_V_MASK) == `INST_VL1RE8_V);
-wire is_vl1re16_v = vector_op_i && ((opcode0_opcode_i & `INST_VL1RE16_V_MASK) == `INST_VL1RE16_V);
-wire is_vl1re32_v = vector_op_i && ((opcode0_opcode_i & `INST_VL1RE32_V_MASK) == `INST_VL1RE32_V);
-wire is_vl1re64_v = vector_op_i && ((opcode0_opcode_i & `INST_VL1RE64_V_MASK) == `INST_VL1RE64_V);
+wire is_vle8_v  = vector_op_i && ((opcode_opcode_i & `INST_VLE8_V_MASK)  == `INST_VLE8_V);
+wire is_vle16_v = vector_op_i && ((opcode_opcode_i & `INST_VLE16_V_MASK) == `INST_VLE16_V);
+wire is_vle32_v = vector_op_i && ((opcode_opcode_i & `INST_VLE32_V_MASK) == `INST_VLE32_V);
+wire is_vle64_v = vector_op_i && ((opcode_opcode_i & `INST_VLE64_V_MASK) == `INST_VLE64_V);
 
-wire is_vector_load_w = is_vl1re8_v || is_vl1re16_v || is_vl1re32_v || is_vl1re64_v;
+wire is_vector_load_w = is_vle8_v | is_vle16_v | is_vle32_v | is_vle64_v;
 
 // Stores
-wire is_vs1r_v = vector_op_i && ((opcode0_opcode_i & `INST_VS1R_V_MASK) == `INST_VS1R_V);
-wire is_vs2r_v = vector_op_i && ((opcode0_opcode_i & `INST_VS2R_V_MASK) == `INST_VS2R_V);
+wire is_vse8_v  = vector_op_i && ((opcode_opcode_i & `INST_VSE8_V_MASK)  == `INST_VSE8_V);
+wire is_vse16_v = vector_op_i && ((opcode_opcode_i & `INST_VSE16_V_MASK) == `INST_VSE16_V);
+wire is_vse32_v = vector_op_i && ((opcode_opcode_i & `INST_VSE32_V_MASK) == `INST_VSE32_V);
+wire is_vse64_v = vector_op_i && ((opcode_opcode_i & `INST_VSE64_V_MASK) == `INST_VSE64_V);
 
-wire is_vector_store_w = is_vs1r_v || is_vs2r_v;
+wire is_vector_store_w = is_vse8_v | is_vse16_v | is_vse32_v | is_vse64_v;
 
-wire [1:0] element_width_w = is_vl1re8_v ? WIDTH_8B :
-                            is_vl1re16_v ? WIDTH_16B : 
-                            is_vl1re32_v ? WIDTH_32B : 
-                            is_vl1re64_v ? WIDTH_64B : WIDTH_8B;
-
-wire [1:0] n_reg_w = is_vs1r_v ? 2'd1 :
-                    is_vs2r_v ? 2'd2 : 2'd1;
+wire [1:0] element_width_w = is_vle8_v  | is_vse8_v  ? WIDTH_8B  :
+                             is_vle16_v | is_vse16_v ? WIDTH_16B :
+                             is_vle32_v | is_vse32_v ? WIDTH_32B :
+                             is_vle64_v | is_vse64_v ? WIDTH_64B : WIDTH_8B;
 
 //-----------------------------------------------------------------
 // Registers
 //-----------------------------------------------------------------
 reg [2:0] state_q;
 reg [31:0] addr_q;
-reg [31:0] next_addr_q;
 reg [VLEN-1:0] vector_buffer_q;
-reg [VLEN_BYTES-1:0] vector_mask_q;
-reg [$clog2(VLEN_BYTES)-1:0] transfer_count_q;
-reg [$clog2(VLEN_BYTES)-1:0] bytes_transferred_q;
 reg [1:0] element_width_q;
-reg [1:0] n_reg_q;
 reg is_load_q;
+reg [$clog2(BEAT_COUNT):0] beat_q;
 
 //-----------------------------------------------------------------
 // Internal Wires
 //-----------------------------------------------------------------
-wire [31:0] element_size_bytes_w;
-wire [$clog2(VLEN_BYTES)-1:0] current_offset_w;
 wire unaligned_access_w;
-wire transfer_complete_w;
-wire operation_complete_w;
+wire last_beat_w;
 
-assign element_size_bytes_w = (element_width_q == WIDTH_8B) ? 1 :
-                                (element_width_q == WIDTH_16B) ? 2 :
-                                (element_width_q == WIDTH_32B) ? 4 :
-                                (element_width_q == WIDTH_64B) ? 8 : 1;
+assign unaligned_access_w = (element_width_w == WIDTH_64B && opcode_ra_operand_i[2:0] != 3'b000) ||
+                            (element_width_w == WIDTH_32B && opcode_ra_operand_i[1:0] != 2'b00) ||
+                            (element_width_w == WIDTH_16B && opcode_ra_operand_i[0]    != 1'b0);
 
-assign current_offset_w = bytes_transferred_q;
-
-assign unaligned_access_w = (element_width_q == WIDTH_16B && addr_q[0] != 1'b0) ||
-                                (element_width_q == WIDTH_32B && addr_q[1:0] != 2'b00) ||
-                                (element_width_q == WIDTH_64B && addr_q[2:0] != 3'b000);
-
-wire [$clog2(VLEN_BYTES*4)-1:0] total_bytes_to_transfer_w = is_load_q ? VLEN_BYTES : (VLEN_BYTES * n_reg_q);
-
-assign transfer_complete_w = (bytes_transferred_q >= total_bytes_to_transfer_w) || (transfer_count_q == 0);
-assign operation_complete_w = (state_q == STATE_COMPLETE);
+assign last_beat_w = (beat_q == (BEAT_COUNT-1));
 
 //-----------------------------------------------------------------
 // Next State Logic
@@ -181,39 +161,28 @@ always @* begin
 
     case(state_q)
         STATE_IDLE: begin
-            if (opcode_valid_i && is_vector_load_w && !unaligned_access_w)
-                next_state_r = STATE_LOAD_REQ;
-            else if (opcode_valid_i && is_vector_store_w && !unaligned_access_w)
-                next_state_r = STATE_STORE_REQ;
+            if (opcode_valid_i && (is_vector_load_w || is_vector_store_w)) begin
+                if (unaligned_access_w)
+                    next_state_r = STATE_ERROR;
+                else
+                    next_state_r = STATE_REQ;
+            end
         end
 
-        STATE_LOAD_REQ: begin
+        STATE_REQ: begin
             if (mem_accept_i)
-                next_state_r = STATE_LOAD_RESP;
-            else if (unaligned_access_w)
-                next_state_r = STATE_ERROR;
+                next_state_r = STATE_WAIT;
         end
 
-        STATE_LOAD_RESP: begin
+        STATE_WAIT: begin
             if (mem_ack_i) begin
                 if (mem_error_i)
                     next_state_r = STATE_ERROR;
-                else if (transfer_complete_w)
+                else if (last_beat_w)
                     next_state_r = STATE_COMPLETE;
                 else
-                    next_state_r = STATE_LOAD_REQ; 
+                    next_state_r = STATE_REQ;
             end
-        end
-
-        STATE_STORE_REQ: begin
-            if (mem_accept_i) begin
-                if (transfer_complete_w)
-                    next_state_r = STATE_COMPLETE;
-                else
-                    next_state_r = STATE_STORE_REQ;
-            end
-            else if (unaligned_access_w)
-                next_state = STATE_ERROR;
         end
 
         STATE_COMPLETE: begin
@@ -236,14 +205,10 @@ always @(posedge clk_i or posedge rst_i) begin
     if (rst_i) begin
         state_q <= STATE_IDLE;
         addr_q <= 32'b0;
-        next_addr_q <= 32'b0;
         vector_buffer_q <= {VLEN{1'b0}};
-        vector_mask_q <= {VLEN{1'b0}};
-        transfer_count_q <= {$clog2(VLEN_BYTES){1'b0}};
-        bytes_transferred_q <= {$clog2(VLEN_BYTES){1'b0}};
         element_width_q <= WIDTH_8B;
-        n_reg_q <= 2'd1;
         is_load_q <= 1'b0;
+        beat_q <= {$clog2(BEAT_COUNT)+1{1'b0}};
     end
     else begin
         state_q <= next_state_r;
@@ -253,60 +218,34 @@ always @(posedge clk_i or posedge rst_i) begin
                 if (opcode_valid_i && (is_vector_load_w || is_vector_store_w)) begin
                     addr_q <= opcode_ra_operand_i;
                     element_width_q <= element_width_w;
-                    n_reg_q <= n_reg_w;
                     is_load_q <= is_vector_load_w;
-                    
-                    if (is_vector_store_w)
-                        transfer_count_q <= ((VLEN_BYTES*n_reg_w) + 3) / 4;
-                    else
-                        transfer_count_q <= (VLEN_BYTES + 3) / 4;
-                    
-                    bytes_transferred_q <= 0;
-                    
-                    if (is_vector_store_w)
-                        vector_buffer_q <= vector_data_i;
-                    else
-                        vector_buffer_q <= {VLEN{1'b0}};
-
+                    beat_q <= {$clog2(BEAT_COUNT)+1{1'b0}};
+                    vector_buffer_q <= is_vector_store_w ? vector_data_i : {VLEN{1'b0}};
                 end
             end 
 
-            STATE_LOAD_REQ: begin
-                if(mem_accept_i) begin
-                    addr_q <= addr_q + 4;
-                end
-            end
-
-            STATE_LOAD_RESP: begin
+            STATE_WAIT: begin
                 if (mem_ack_i && !mem_error_i) begin
-                    case(bytes_transferred_q[$clog2(VLEN_BYTES)-1:2])
-                        0: vector_buffer_q[31:0] <= mem_data_rd_i;
-                        1: vector_buffer_q[63:32] <= mem_data_rd_i;
-                        2: vector_buffer_q[95:64] <= mem_data_rd_i;
-                        3: vector_buffer_q[127:96] <= mem_data_rd_i;
-                    endcase
-
-                    bytes_transferred_q <= bytes_transferred_q + 4;
-                    transfer_count_q <= transfer_count_q - 1;
-                end
-            end
-
-            STATE_STORE_REQ: begin
-                if(mem_accept_i) begin
-                    addr_q <= addr_q + 4;
-                    bytes_transferred_q <= bytes_transferred_q + 4;
-                    transfer_count_q <= transfer_count_q - 1;
+                    if (is_load_q) begin
+                        case(beat_q[$clog2(BEAT_COUNT):0])
+                            0: vector_buffer_q[31:0]    <= mem_data_rd_i;
+                            1: vector_buffer_q[63:32]   <= mem_data_rd_i;
+                            2: vector_buffer_q[95:64]   <= mem_data_rd_i;
+                            3: vector_buffer_q[127:96]  <= mem_data_rd_i;
+                            default: ;
+                        endcase
+                    end
+                    beat_q <= beat_q + 1'b1;
+                    addr_q <= addr_q + 32'd4;
                 end
             end
 
             STATE_COMPLETE: begin
-                bytes_transferred_q <= 0;
-                transfer_count_q <= 0;
+                beat_q <= {$clog2(BEAT_COUNT)+1{1'b0}};
             end
 
             STATE_ERROR: begin
-                bytes_transferred_q <= 0;
-                transfer_count_q <= 0;
+                beat_q <= {$clog2(BEAT_COUNT)+1{1'b0}};
             end
         endcase
     end
@@ -325,25 +264,18 @@ always @* begin
     mem_rd_r = 1'b0;
     mem_wr_r = 4'b0;
 
-    case(state_q)
-        STATE_LOAD_REQ: begin
-            mem_rd_r = 1'b1;
-            mem_wr_r = 4'b0;
-        end
-        
-        STATE_STORE_REQ: begin
-            mem_rd_r = 1'b0;
-            mem_wr_r = 4'b1111;
+    if (state_q == STATE_REQ) begin
+        mem_rd_r = is_load_q;
+        mem_wr_r = is_load_q ? 4'b0000 : 4'b1111;
 
-            case(bytes_transferred_q[$clog2(VLEN_BYTES*4)-1:2])
-                0: mem_data_wr_r = vector_buffer_q[31:0];
-                1: mem_data_wr_r = vector_buffer_q[63:32];
-                2: mem_data_wr_r = vector_buffer_q[95:64];
-                3: mem_data_wr_r = vector_buffer_q[127:96];
-            endcase
-            // EMO - need for a logic to handle storing multiple registers
-        end
-    endcase
+        case(beat_q[$clog2(BEAT_COUNT):0])
+            0: mem_data_wr_r = vector_buffer_q[31:0];
+            1: mem_data_wr_r = vector_buffer_q[63:32];
+            2: mem_data_wr_r = vector_buffer_q[95:64];
+            3: mem_data_wr_r = vector_buffer_q[127:96];
+            default: mem_data_wr_r = 32'b0;
+        endcase
+    end
 end
 
 //-----------------------------------------------------------------
@@ -365,6 +297,6 @@ assign vector_data_o = vector_buffer_q;
 assign vector_valid_o = (state_q == STATE_COMPLETE);
 assign vector_error_o = (state_q == STATE_ERROR);
 
-assign stall_o = (state_q != STATE_IDLE && state_q != STATE_COMPLETE && state_q != STATE_ERROR);
+assign stall_o = (state_q == STATE_REQ) || (state_q == STATE_WAIT);
 
 endmodule
