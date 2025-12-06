@@ -263,6 +263,7 @@ wire           fetch1_instr_v_alu_w; //new
 wire           writeback_v_alu_valid_w; //new
 wire  [ VLEN - 1:0]  writeback_v_alu_value_w; //new
 wire           v_alu_opcode_valid_w; //new
+wire           v_lsu_opcode_valid_w; //new
 wire  [  4:0]  opcode0_vd_idx_w; //new
 wire  [  4:0]  opcode0_va_idx_w; //new
 wire  [  4:0]  opcode0_vb_idx_w; //new
@@ -288,6 +289,46 @@ wire  [ VLEN - 1:0]  v_alu_opcode_vb_operand_w; //new
 wire  [ VLEN - 1:0]  v_alu_opcode_vmask_operand_w; //new
 wire  [ 31:0]        v_alu_opcode_ra_operand_w; //new
 wire  [ 31:0]        v_alu_opcode_rb_operand_w; //new
+// Scalar LSU -> MMU (pre-arbitration) wires
+wire  [ 31:0]  lsu_mem_addr_w;
+wire  [ 31:0]  lsu_mem_data_wr_w;
+wire           lsu_mem_rd_w;
+wire  [  3:0]  lsu_mem_wr_w;
+wire           lsu_mem_cacheable_w;
+wire  [ 10:0]  lsu_mem_req_tag_w;
+wire           lsu_mem_invalidate_w;
+wire           lsu_mem_writeback_w;
+wire           lsu_mem_flush_w;
+wire           lsu_stall_scalar_w;
+// Vector LSU -> MMU (pre-arbitration) wires
+wire  [ 31:0]  vlsu_mem_addr_w;
+wire  [ 31:0]  vlsu_mem_data_wr_w;
+wire           vlsu_mem_rd_w;
+wire  [  3:0]  vlsu_mem_wr_w;
+wire           vlsu_mem_cacheable_w;
+wire  [ 10:0]  vlsu_mem_req_tag_w;
+wire           vlsu_mem_invalidate_w;
+wire           vlsu_mem_writeback_w;
+wire           vlsu_mem_flush_w;
+reg            vlsu_active_q;
+// Vector LSU opcode bundle
+wire  [ 31:0]        v_lsu_opcode_opcode_w; //new
+wire  [ 31:0]        v_lsu_opcode_pc_w; //new
+wire                 v_lsu_opcode_invalid_w; //new
+wire  [  4:0]        v_lsu_opcode_rd_idx_w; //new
+wire  [  4:0]        v_lsu_opcode_ra_idx_w; //new
+wire  [  4:0]        v_lsu_opcode_rb_idx_w; //new
+wire  [  4:0]        v_lsu_opcode_vd_idx_w; //new
+wire  [  4:0]        v_lsu_opcode_va_idx_w; //new
+wire  [  4:0]        v_lsu_opcode_vb_idx_w; //new
+wire  [ 31:0]        v_lsu_opcode_ra_operand_w; //new
+wire  [ 31:0]        v_lsu_opcode_rb_operand_w; //new
+wire  [ VLEN - 1:0]  v_lsu_opcode_va_operand_w; //new
+wire  [ VLEN - 1:0]  v_lsu_opcode_vb_operand_w; //new
+wire  [ VLEN - 1:0]  v_lsu_opcode_vmask_operand_w; //new
+wire                 writeback_v_lsu_valid_w; //new
+wire  [ VLEN - 1:0]  writeback_v_lsu_value_w; //new
+wire                 writeback_v_lsu_error_w; //new
 
 
 
@@ -371,6 +412,21 @@ u_frontend
     ,.fetch1_instr_v_lsu_o(fetch1_instr_v_lsu_w) //new
     ,.fetch1_instr_v_alu_o(fetch1_instr_v_alu_w) //new
 );
+
+//------------------------------------------------------------------------
+// Data-port arbitration between scalar LSU and VLSU
+//------------------------------------------------------------------------
+wire use_vlsu_w = vlsu_active_q;
+
+assign mmu_lsu_addr_w       = use_vlsu_w ? vlsu_mem_addr_w       : lsu_mem_addr_w;
+assign mmu_lsu_data_wr_w    = use_vlsu_w ? vlsu_mem_data_wr_w    : lsu_mem_data_wr_w;
+assign mmu_lsu_rd_w         = use_vlsu_w ? vlsu_mem_rd_w         : lsu_mem_rd_w;
+assign mmu_lsu_wr_w         = use_vlsu_w ? vlsu_mem_wr_w         : lsu_mem_wr_w;
+assign mmu_lsu_cacheable_w  = use_vlsu_w ? vlsu_mem_cacheable_w  : lsu_mem_cacheable_w;
+assign mmu_lsu_req_tag_w    = use_vlsu_w ? vlsu_mem_req_tag_w    : lsu_mem_req_tag_w;
+assign mmu_lsu_invalidate_w = use_vlsu_w ? vlsu_mem_invalidate_w : lsu_mem_invalidate_w;
+assign mmu_lsu_writeback_w  = use_vlsu_w ? vlsu_mem_writeback_w  : lsu_mem_writeback_w;
+assign mmu_lsu_flush_w      = use_vlsu_w ? vlsu_mem_flush_w      : lsu_mem_flush_w;
 
 
 biriscv_mmu
@@ -462,27 +518,27 @@ u_lsu
     ,.opcode_ra_operand_i(lsu_opcode_ra_operand_w)
     ,.opcode_rb_operand_i(lsu_opcode_rb_operand_w)
     ,.mem_data_rd_i(mmu_lsu_data_rd_w)
-    ,.mem_accept_i(mmu_lsu_accept_w)
-    ,.mem_ack_i(mmu_lsu_ack_w)
-    ,.mem_error_i(mmu_lsu_error_w)
+    ,.mem_accept_i(mmu_lsu_accept_w & ~vlsu_active_q)
+    ,.mem_ack_i(mmu_lsu_ack_w & ~vlsu_active_q)
+    ,.mem_error_i(mmu_lsu_error_w & ~vlsu_active_q)
     ,.mem_resp_tag_i(mmu_lsu_resp_tag_w)
     ,.mem_load_fault_i(mmu_load_fault_w)
     ,.mem_store_fault_i(mmu_store_fault_w)
 
     // Outputs
-    ,.mem_addr_o(mmu_lsu_addr_w)
-    ,.mem_data_wr_o(mmu_lsu_data_wr_w)
-    ,.mem_rd_o(mmu_lsu_rd_w)
-    ,.mem_wr_o(mmu_lsu_wr_w)
-    ,.mem_cacheable_o(mmu_lsu_cacheable_w)
-    ,.mem_req_tag_o(mmu_lsu_req_tag_w)
-    ,.mem_invalidate_o(mmu_lsu_invalidate_w)
-    ,.mem_writeback_o(mmu_lsu_writeback_w)
-    ,.mem_flush_o(mmu_lsu_flush_w)
+    ,.mem_addr_o(lsu_mem_addr_w)
+    ,.mem_data_wr_o(lsu_mem_data_wr_w)
+    ,.mem_rd_o(lsu_mem_rd_w)
+    ,.mem_wr_o(lsu_mem_wr_w)
+    ,.mem_cacheable_o(lsu_mem_cacheable_w)
+    ,.mem_req_tag_o(lsu_mem_req_tag_w)
+    ,.mem_invalidate_o(lsu_mem_invalidate_w)
+    ,.mem_writeback_o(lsu_mem_writeback_w)
+    ,.mem_flush_o(lsu_mem_flush_w)
     ,.writeback_valid_o(writeback_mem_valid_w)
     ,.writeback_value_o(writeback_mem_value_w)
     ,.writeback_exception_o(writeback_mem_exception_w)
-    ,.stall_o(lsu_stall_w)
+    ,.stall_o(lsu_stall_scalar_w)
 );
 
 
@@ -607,6 +663,7 @@ u_issue
     ,.fetch0_instr_rd_valid_i(fetch0_instr_rd_valid_w)
     ,.fetch0_instr_vd_valid_i(fetch0_instr_vd_valid_w) //new
     ,.fetch0_instr_v_alu_i(fetch0_instr_v_alu_w) //new
+    ,.fetch0_instr_v_lsu_i(fetch0_instr_v_lsu_w) //new
     ,.fetch0_instr_invalid_i(fetch0_instr_invalid_w)
     ,.fetch1_valid_i(fetch1_valid_w)
     ,.fetch1_instr_i(fetch1_instr_w)
@@ -622,6 +679,7 @@ u_issue
     ,.fetch1_instr_rd_valid_i(fetch1_instr_rd_valid_w)
     ,.fetch1_instr_vd_valid_i(fetch1_instr_vd_valid_w) //new
     ,.fetch1_instr_v_alu_i(fetch1_instr_v_alu_w) //new
+    ,.fetch1_instr_v_lsu_i(fetch1_instr_v_lsu_w) //new
     ,.fetch1_instr_invalid_i(fetch1_instr_invalid_w)
     ,.branch_exec0_request_i(branch_exec0_request_w)
     ,.branch_exec0_is_taken_i(branch_exec0_is_taken_w)
@@ -658,6 +716,9 @@ u_issue
     ,.writeback_div_value_i(writeback_div_value_w)
     ,.writeback_v_alu_valid_i(writeback_v_alu_valid_w) //new
     ,.writeback_v_alu_value_i(writeback_v_alu_value_w) //new
+    ,.writeback_v_lsu_valid_i(writeback_v_lsu_valid_w | writeback_v_lsu_error_w) //new
+    ,.writeback_v_lsu_value_i(writeback_v_lsu_value_w) //new
+    ,.writeback_v_lsu_vd_idx_i(v_lsu_opcode_vd_idx_w) //new
     ,.csr_result_e1_value_i(csr_result_e1_value_w)
     ,.csr_result_e1_write_i(csr_result_e1_write_w)
     ,.csr_result_e1_wdata_i(csr_result_e1_wdata_w)
@@ -743,6 +804,22 @@ u_issue
     ,.v_alu_opcode_vmask_operand_o(v_alu_opcode_vmask_operand_w) //new
     ,.v_alu_opcode_ra_operand_o(v_alu_opcode_ra_operand_w) // new
     ,.v_alu_opcode_rb_operand_o(v_alu_opcode_rb_operand_w) // new
+    // Vector LSU opcode
+    ,.v_lsu_opcode_valid_o(v_lsu_opcode_valid_w) // new
+    ,.v_lsu_opcode_opcode_o(v_lsu_opcode_opcode_w) // new
+    ,.v_lsu_opcode_pc_o(v_lsu_opcode_pc_w) // new
+    ,.v_lsu_opcode_invalid_o(v_lsu_opcode_invalid_w) // new
+    ,.v_lsu_opcode_rd_idx_o(v_lsu_opcode_rd_idx_w) // new
+    ,.v_lsu_opcode_ra_idx_o(v_lsu_opcode_ra_idx_w) // new
+    ,.v_lsu_opcode_rb_idx_o(v_lsu_opcode_rb_idx_w) // new
+    ,.v_lsu_opcode_vd_idx_o(v_lsu_opcode_vd_idx_w) // new
+    ,.v_lsu_opcode_va_idx_o(v_lsu_opcode_va_idx_w) // new
+    ,.v_lsu_opcode_vb_idx_o(v_lsu_opcode_vb_idx_w) // new
+    ,.v_lsu_opcode_ra_operand_o(v_lsu_opcode_ra_operand_w) // new
+    ,.v_lsu_opcode_rb_operand_o(v_lsu_opcode_rb_operand_w) // new
+    ,.v_lsu_opcode_va_operand_o(v_lsu_opcode_va_operand_w) // new
+    ,.v_lsu_opcode_vb_operand_o(v_lsu_opcode_vb_operand_w) // new
+    ,.v_lsu_opcode_vmask_operand_o(v_lsu_opcode_vmask_operand_w) // new
     ,.csr_opcode_opcode_o(csr_opcode_opcode_w)
     ,.csr_opcode_pc_o(csr_opcode_pc_w)
     ,.csr_opcode_invalid_o(csr_opcode_invalid_w)
@@ -833,7 +910,7 @@ u_exec1
 biriscv_v_alu_exec
 #(
      .VLEN(VLEN)
-     ,.ELEN(ELEN)
+    ,.ELEN(ELEN)
 )
 u_v_alu_exec
 (
@@ -859,6 +936,63 @@ u_v_alu_exec
     ,.writeback_valid_o(writeback_v_alu_valid_w)
     ,.writeback_value_o(writeback_v_alu_value_w)
 );
+
+//-----------------------------------------------------------------
+// Vector LSU instance and arbitration state
+//-----------------------------------------------------------------
+wire vlsu_done_w = writeback_v_lsu_valid_w | writeback_v_lsu_error_w;
+always @(posedge clk_i or posedge rst_i)
+    if (rst_i)
+        vlsu_active_q <= 1'b0;
+    else if (vlsu_done_w)
+        vlsu_active_q <= 1'b0;
+    else if (v_lsu_opcode_valid_w)
+        vlsu_active_q <= 1'b1;
+
+biriscv_v_lsu #(
+    .MEM_CACHE_ADDR_MIN(MEM_CACHE_ADDR_MIN),
+    .MEM_CACHE_ADDR_MAX(MEM_CACHE_ADDR_MAX),
+    .VLEN(VLEN)
+) u_vlsu (
+    .clk_i(clk_i),
+    .rst_i(rst_i),
+    .opcode_valid_i(v_lsu_opcode_valid_w),
+    .opcode_opcode_i(v_lsu_opcode_opcode_w),
+    .opcode_pc_i(v_lsu_opcode_pc_w),
+    .opcode_invalid_i(v_lsu_opcode_invalid_w),
+    .opcode_rd_idx_i(v_lsu_opcode_rd_idx_w),
+    .opcode_ra_idx_i(v_lsu_opcode_ra_idx_w),
+    .opcode_rb_idx_i(v_lsu_opcode_rb_idx_w),
+    .opcode_ra_operand_i(v_lsu_opcode_ra_operand_w),
+    .opcode_rb_operand_i(v_lsu_opcode_rb_operand_w),
+    .vector_data_i(v_lsu_opcode_vb_operand_w), // store data / ignored for loads
+    .vector_op_i(v_lsu_opcode_valid_w),
+
+    .mem_data_rd_i(mmu_lsu_data_rd_w),
+    .mem_accept_i(mmu_lsu_accept_w & vlsu_active_q),
+    .mem_ack_i(mmu_lsu_ack_w & vlsu_active_q),
+    .mem_error_i(mmu_lsu_error_w & vlsu_active_q),
+    .mem_resp_tag_i(mmu_lsu_resp_tag_w),
+
+    .mem_addr_o(vlsu_mem_addr_w),
+    .mem_data_wr_o(vlsu_mem_data_wr_w),
+    .mem_rd_o(vlsu_mem_rd_w),
+    .mem_wr_o(vlsu_mem_wr_w),
+    .mem_cacheable_o(vlsu_mem_cacheable_w),
+    .mem_req_tag_o(vlsu_mem_req_tag_w),
+    .mem_invalidate_o(vlsu_mem_invalidate_w),
+    .mem_writeback_o(vlsu_mem_writeback_w),
+    .mem_flush_o(vlsu_mem_flush_w),
+    .stall_o(), // serialized via vlsu_active_q
+
+    .vector_data_o(writeback_v_lsu_value_w),
+    .vector_valid_o(writeback_v_lsu_valid_w),
+    .vector_error_o(writeback_v_lsu_error_w)
+);
+
+
+// Combined LSU stall seen by issue
+assign lsu_stall_w = lsu_stall_scalar_w | vlsu_active_q;
 
 
 

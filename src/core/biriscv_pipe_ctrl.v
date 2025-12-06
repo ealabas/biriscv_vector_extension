@@ -83,6 +83,7 @@ module biriscv_pipe_ctrl
     ,output          mul_e1_o
     ,output          branch_e1_o
     ,output          v_alu_e1_o // new
+    ,output          v_lsu_e1_o // new
     ,output [4:0]    vd_e1_o // new
     ,output [4:0]    rd_e1_o
     ,output [31:0]   pc_e1_o
@@ -94,6 +95,9 @@ module biriscv_pipe_ctrl
     ,output [VLEN-1:0] v_alu_operand_va_e1_o // new
     ,output [VLEN-1:0] v_alu_operand_vb_e1_o  // new
     ,output [VLEN-1:0] v_alu_operand_vmask_e1_o // new
+    ,output [VLEN-1:0] v_lsu_operand_va_e1_o // new
+    ,output [VLEN-1:0] v_lsu_operand_vb_e1_o  // new
+    ,output [VLEN-1:0] v_lsu_operand_vmask_e1_o // new
 
     // Execution stage 2: Other results
     ,input           mem_complete_i
@@ -119,6 +123,8 @@ module biriscv_pipe_ctrl
     // Vector ALU Result
     ,input            v_alu_complete_i // new
     ,input [VLEN-1:0] v_alu_result_i // new
+    // Vector LSU completion (long latency)
+    ,input            v_lsu_complete_i // new
 
     // Outputs to Vector ALU
     ,output [VLEN-1:0] operand_va_wb_o // new, for debug
@@ -160,7 +166,7 @@ wire branch_misaligned_w = (issue_branch_taken_i && issue_branch_target_i[1:0] !
 //------------------------------------------------------------- 
 `define PCINFO_W     13 // was 10 before, updated to 13 to add v_alu and v_lsu and vd_valid
 `define PCINFO_VD_VALID  12 // new
-`define PCINFO_V_LSU     11 
+`define PCINFO_V_LSU     11
 `define PCINFO_V_ALU     10
 `define PCINFO_ALU       0
 `define PCINFO_LOAD      1
@@ -269,6 +275,10 @@ assign operand_rb_e1_o = operand_rb_e1_q;
 assign v_alu_operand_va_e1_o = operand_va_e1_q; // new
 assign v_alu_operand_vb_e1_o = operand_vb_e1_q; // new
 assign v_alu_operand_vmask_e1_o = mask_vm_e1_q; // new
+assign v_lsu_e1_o      = ctrl_e1_q[`PCINFO_V_LSU]; // new
+assign v_lsu_operand_va_e1_o = operand_va_e1_q; // new
+assign v_lsu_operand_vb_e1_o = operand_vb_e1_q; // new
+assign v_lsu_operand_vmask_e1_o = mask_vm_e1_q; // new
 assign v_alu_e1_o      = ctrl_e1_q[`PCINFO_V_ALU]; // new
 
 //-------------------------------------------------------------
@@ -396,7 +406,8 @@ assign vd_e2_o         = {5{(valid_e2_w && ctrl_e2_q[`PCINFO_VD_VALID] && ~stall
 
 // Load store result not ready when reaching E2
 assign stall_o         = (ctrl_e1_q[`PCINFO_DIV] && ~div_complete_i) || ((ctrl_e2_q[`PCINFO_LOAD] | ctrl_e2_q[`PCINFO_STORE]) & ~mem_complete_i)
-                         || (ctrl_e1_q[`PCINFO_V_ALU] && ~v_alu_complete_i); // updated, added v_alu check
+                         || (ctrl_e1_q[`PCINFO_V_ALU] && ~v_alu_complete_i)
+                         || (ctrl_e1_q[`PCINFO_V_LSU] && ~v_lsu_complete_i); // stall while VLSU owns mem interface
 
 reg [`EXCEPTION_W-1:0] exception_e2_r;
 always @ *

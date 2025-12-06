@@ -57,6 +57,7 @@ module biriscv_issue
     ,input           fetch0_instr_rd_valid_i
     ,input           fetch0_instr_vd_valid_i // new
     ,input           fetch0_instr_v_alu_i // new
+    ,input           fetch0_instr_v_lsu_i // new
     ,input           fetch0_instr_invalid_i
     ,input           fetch1_valid_i
     ,input  [ 31:0]  fetch1_instr_i
@@ -72,6 +73,7 @@ module biriscv_issue
     ,input           fetch1_instr_rd_valid_i
     ,input           fetch1_instr_vd_valid_i // new
     ,input           fetch1_instr_v_alu_i // new
+    ,input           fetch1_instr_v_lsu_i // new
     ,input           fetch1_instr_invalid_i
     ,input           branch_exec0_request_i
     ,input           branch_exec0_is_taken_i
@@ -109,6 +111,11 @@ module biriscv_issue
     // EMO - maybe a input here for the valud and value for v_alu. check.
     ,input           writeback_v_alu_valid_i // new
     ,input [VLEN-1:0] writeback_v_alu_value_i // new
+    // VLSU
+    ,input           writeback_v_lsu_valid_i // new
+    ,input [VLEN-1:0] writeback_v_lsu_value_i // new
+    ,input  [ 4:0]   writeback_v_lsu_vd_idx_i // new
+    
     ,input  [ 31:0]  csr_result_e1_value_i
     ,input           csr_result_e1_write_i
     ,input  [ 31:0]  csr_result_e1_wdata_i
@@ -194,6 +201,23 @@ module biriscv_issue
     ,output [VLEN-1:0] v_alu_opcode_vmask_operand_o // new
     ,output [31:0]   v_alu_opcode_ra_operand_o // new
     ,output [31:0]   v_alu_opcode_rb_operand_o // new
+    // Vector LSU opcode bundle (slot0 only)
+    ,output          v_lsu_opcode_valid_o // new
+    ,output [ 31:0]  v_lsu_opcode_opcode_o // new
+    ,output [ 31:0]  v_lsu_opcode_pc_o // new
+    ,output          v_lsu_opcode_invalid_o // new
+    ,output [  4:0]  v_lsu_opcode_rd_idx_o // new
+    ,output [  4:0]  v_lsu_opcode_ra_idx_o // new
+    ,output [  4:0]  v_lsu_opcode_rb_idx_o // new
+    ,output [  4:0]  v_lsu_opcode_vd_idx_o // new
+    ,output [  4:0]  v_lsu_opcode_va_idx_o // new
+    ,output [  4:0]  v_lsu_opcode_vb_idx_o // new
+    ,output [ 31:0]  v_lsu_opcode_ra_operand_o // new
+    ,output [ 31:0]  v_lsu_opcode_rb_operand_o // new
+    ,output [VLEN-1:0] v_lsu_opcode_va_operand_o // new
+    ,output [VLEN-1:0] v_lsu_opcode_vb_operand_o // new
+    ,output [VLEN-1:0] v_lsu_opcode_vmask_operand_o // new
+
     ,output [ 31:0]  csr_opcode_opcode_o
     ,output [ 31:0]  csr_opcode_pc_o
     ,output          csr_opcode_invalid_o
@@ -358,6 +382,7 @@ wire       issue_a_mul_w      = (slot0_valid_r ? fetch0_instr_mul_i      : fetch
 wire       issue_a_div_w      = (slot0_valid_r ? fetch0_instr_div_i      : fetch1_instr_div_i);
 wire       issue_a_csr_w      = (slot0_valid_r ? fetch0_instr_csr_i      : fetch1_instr_csr_i);
 wire       issue_a_v_alu_w    = (slot0_valid_r ? fetch0_instr_v_alu_i    : fetch1_instr_v_alu_i); // new
+wire       issue_a_v_lsu_w    = (slot0_valid_r ? fetch0_instr_v_lsu_i    : fetch1_instr_v_lsu_i); // new
 wire       issue_a_invalid_w  = (slot0_valid_r ? fetch0_instr_invalid_i  : fetch1_instr_invalid_i);
 
 
@@ -379,6 +404,7 @@ wire       issue_b_mul_w      = fetch1_instr_mul_i;
 wire       issue_b_div_w      = fetch1_instr_div_i;
 wire       issue_b_csr_w      = fetch1_instr_csr_i;
 wire       issue_b_v_alu_w    = fetch1_instr_v_alu_i; // new
+wire       issue_b_v_lsu_w    = fetch1_instr_v_lsu_i; // new
 wire       issue_b_invalid_w  = fetch1_instr_invalid_i;
 
 //-------------------------------------------------------------
@@ -457,7 +483,7 @@ u_pipe0_ctrl
     ,.issue_mul_i(issue_a_mul_w)
     ,.issue_branch_i(issue_a_branch_w)
     ,.issue_v_alu_i(issue_a_v_alu_w) // new
-    ,.issue_v_lsu_i(1'b0) // new
+    ,.issue_v_lsu_i(issue_a_v_lsu_w) // new
     ,.issue_rd_valid_i(issue_a_sb_alloc_w)
     ,.issue_vd_valid_i(issue_a_v_sb_alloc_w) // new
     ,.issue_rd_i(issue_a_rd_idx_w)
@@ -529,6 +555,8 @@ u_pipe0_ctrl
     // V ALU results
     ,.v_alu_complete_i(writeback_v_alu_valid_i) // new
     ,.v_alu_result_i(writeback_v_alu_value_i) // new
+    // V LSU completion
+    ,.v_lsu_complete_i(writeback_v_lsu_valid_i) // new
 
     // Commit
     ,.valid_wb_o(pipe0_valid_wb_w)
@@ -627,7 +655,7 @@ u_pipe1_ctrl
     ,.issue_mul_i(issue_b_mul_w)
     ,.issue_branch_i(issue_b_branch_w)
     ,.issue_v_alu_i(issue_b_v_alu_w) // new
-    ,.issue_v_lsu_i(1'b0) // new
+    ,.issue_v_lsu_i(1'b0) // new, keep slot1 vector LSU disabled
     ,.issue_rd_valid_i(issue_b_sb_alloc_w)
     ,.issue_vd_valid_i(issue_b_v_sb_alloc_w) // new
     ,.issue_rd_i(issue_b_rd_idx_w)
@@ -808,7 +836,9 @@ wire dual_issue_ok_w =   enable_dual_issue_w &&  // Second pipe switched on
                          ((issue_a_exec_w | issue_a_lsu_w | issue_a_mul_w) && issue_b_branch_w) ||
                          ((issue_a_exec_w | issue_a_mul_w) && issue_b_lsu_w)                    ||
                          ((issue_a_exec_w | issue_a_lsu_w) && issue_b_mul_w)
-                         ) && ~take_interrupt_i;
+                         ) && ~take_interrupt_i
+                         // Do not dual issue when a vector LSU is present (slot0-only resource)
+                         && ~issue_a_v_lsu_w && ~issue_b_v_lsu_w;
 
 always @ *
 begin
@@ -985,8 +1015,8 @@ u_v_regfile
     .rst_i(rst_i),
 
     // Write ports
-    .rd0_i(pipe0_vd_wb_w),
-    .rd0_value_i(pipe0_v_alu_result_wb_w),
+    .rd0_i(writeback_v_lsu_valid_i ? writeback_v_lsu_vd_idx_i : pipe0_vd_wb_w),
+    .rd0_value_i(writeback_v_lsu_valid_i ? writeback_v_lsu_value_i : pipe0_v_alu_result_wb_w),
     .rd1_i(pipe1_vd_wb_w),
     .rd1_value_i(pipe1_v_alu_result_wb_w),
 
@@ -1294,6 +1324,25 @@ assign v_alu_opcode_va_operand_o= pipe1_mux_v_alu_r ? opcode1_va_operand_o : opc
 assign v_alu_opcode_vb_operand_o= pipe1_mux_v_alu_r ? opcode1_vb_operand_o : opcode0_vb_operand_o;
 assign v_alu_opcode_vmask_operand_o= pipe1_mux_v_alu_r ? opcode1_vmask_operand_o : opcode0_vmask_operand_o;
 assign v_alu_opcode_invalid_o    = 1'b0;
+
+//-------------------------------------------------------------
+// Vector LSU (slot0 only)
+//-------------------------------------------------------------
+assign v_lsu_opcode_valid_o         = enable_vector_operations & opcode_a_issue_r & issue_a_v_lsu_w;
+assign v_lsu_opcode_opcode_o        = opcode0_opcode_o;
+assign v_lsu_opcode_pc_o            = opcode0_pc_o;
+assign v_lsu_opcode_invalid_o       = opcode0_invalid_o;
+assign v_lsu_opcode_rd_idx_o        = opcode0_rd_idx_o;
+assign v_lsu_opcode_ra_idx_o        = opcode0_ra_idx_o;
+assign v_lsu_opcode_rb_idx_o        = opcode0_rb_idx_o;
+assign v_lsu_opcode_vd_idx_o        = opcode0_vd_idx_o;
+assign v_lsu_opcode_va_idx_o        = opcode0_va_idx_o;
+assign v_lsu_opcode_vb_idx_o        = opcode0_vb_idx_o;
+assign v_lsu_opcode_ra_operand_o    = opcode0_ra_operand_o;
+assign v_lsu_opcode_rb_operand_o    = opcode0_rb_operand_o;
+assign v_lsu_opcode_va_operand_o    = opcode0_va_operand_o;
+assign v_lsu_opcode_vb_operand_o    = opcode0_vb_operand_o;
+assign v_lsu_opcode_vmask_operand_o = opcode0_vmask_operand_o;
 
 //-------------------------------------------------------------
 // Checker Interface
