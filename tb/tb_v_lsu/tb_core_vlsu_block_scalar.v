@@ -91,7 +91,7 @@ module tb_core_vlsu_block_scalar;
     end
 
     // Data mem model: VLSU serviced; scalar load should be blocked until VLSU releases bus
-    reg [1:0] beat_idx;
+    reg [2:0] beat_idx;
     always @(posedge clk or posedge rst) begin
         if (rst) begin
             mem_d_accept   <= 1'b1;
@@ -103,17 +103,26 @@ module tb_core_vlsu_block_scalar;
         end else begin
             mem_d_ack <= 1'b0;
             if (mem_d_rd) begin
-                if (dut.vlsu_active_q) begin
-                    // VLSU beat sequence check
-                    if (mem_d_addr !== {28'h0, beat_idx, 2'b00}) begin
-                        $display("[%0t] ERROR: VLSU addr %h expected %h", $time, mem_d_addr, {28'h0, beat_idx, 2'b00});
+                // First four beats must belong to VLSU
+                if (beat_idx < 4) begin
+                    if (!dut.vlsu_active_q) begin
+                        $display("[%0t] ERROR: VLSU beats expected but vlsu_active_q=0", $time);
                         $fatal;
                     end
-                    mem_d_data_rd <= beat_mem[beat_idx];
+                    if (mem_d_addr !== {28'h0, beat_idx[1:0], 2'b00}) begin
+                        $display("[%0t] ERROR: VLSU addr %h expected %h", $time, mem_d_addr, {28'h0, beat_idx[1:0], 2'b00});
+                        $fatal;
+                    end
+                    mem_d_data_rd <= beat_mem[beat_idx[1:0]];
                     beat_idx <= beat_idx + 1'b1;
                     mem_d_ack <= 1'b1;
-                end else begin
-                    // Scalar load should only fire after vlsu_active_q drops
+                end
+                else begin
+                    // Scalar load should only fire after VLSU completes
+                    if (dut.vlsu_active_q) begin
+                        $display("[%0t] ERROR: scalar access while vlsu_active_q=1", $time);
+                        $fatal;
+                    end
                     if (mem_d_addr !== 32'h0000_0000) begin
                         $display("[%0t] ERROR: scalar load addr %h unexpected", $time, mem_d_addr);
                         $fatal;
@@ -142,6 +151,12 @@ module tb_core_vlsu_block_scalar;
         // Wait for VLSU completion
         wait (vlsu_done);
         vlsu_seen = 1'b1;
+
+        // Ensure scalar did not complete early
+        if (scalar_valid) begin
+            $display("[%0t] ERROR: scalar completed before VLSU", $time);
+            $fatal;
+        end
 
         // Now scalar load should complete
         wait (scalar_valid);
