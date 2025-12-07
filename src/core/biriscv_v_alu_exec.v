@@ -67,6 +67,9 @@ integer i;
 reg [VLEN - 1:0]  imm4_r;
 reg [VLEN - 1:0]  register_operand_r;
 reg               vm_r;
+reg [VLEN - 1:0]  result_r;
+reg               writeback_valid_q;
+reg [VLEN - 1:0]  writeback_value_q;
 
 always @ *
 begin
@@ -74,7 +77,6 @@ begin
     vm_r     = opcode_opcode_i[25];
     register_operand_r     = {{(VLEN - 32){opcode_ra_operand_i[31]}}, opcode_ra_operand_i};
 end
-reg  [VLEN - 1:0]  result_r;
 
 wire v_alu_inst_w    = ((opcode_opcode_i & `INST_VADD_VV_MASK) == `INST_VADD_VV)|| 
                       ((opcode_opcode_i & `INST_VADD_VX_MASK) == `INST_VADD_VX)|| 
@@ -90,6 +92,7 @@ wire v_alu_inst_w    = ((opcode_opcode_i & `INST_VADD_VV_MASK) == `INST_VADD_VV)
 
 always @ *
 begin
+    result_r = {VLEN{1'b0}};
     if ((opcode_opcode_i & `INST_VADD_VV_MASK) == `INST_VADD_VV) // vadd.vv
     begin
         if (vm_r == 1'b1) begin
@@ -260,8 +263,27 @@ begin
 end
 
 
-assign writeback_valid_o  = 1'b1;
-assign writeback_value_o  = result_r;
+always @ (posedge clk_i or posedge rst_i)
+begin
+    if (rst_i)
+    begin
+        writeback_valid_q <= 1'b0;
+        writeback_value_q <= {VLEN{1'b0}};
+    end
+    else if (opcode_valid_i && v_alu_inst_w)
+    begin
+        writeback_valid_q <= 1'b1;
+        writeback_value_q <= result_r;
+    end
+    else
+    begin
+        writeback_valid_q <= 1'b0;
+        writeback_value_q <= {VLEN{1'b0}};
+    end
+end
+
+assign writeback_valid_o  = writeback_valid_q;
+assign writeback_value_o  = writeback_value_q;
 
 
 endmodule

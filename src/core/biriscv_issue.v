@@ -381,8 +381,11 @@ wire       issue_a_branch_w   = (slot0_valid_r ? fetch0_instr_branch_i   : fetch
 wire       issue_a_mul_w      = (slot0_valid_r ? fetch0_instr_mul_i      : fetch1_instr_mul_i);
 wire       issue_a_div_w      = (slot0_valid_r ? fetch0_instr_div_i      : fetch1_instr_div_i);
 wire       issue_a_csr_w      = (slot0_valid_r ? fetch0_instr_csr_i      : fetch1_instr_csr_i);
-wire       issue_a_v_alu_w    = (slot0_valid_r ? fetch0_instr_v_alu_i    : fetch1_instr_v_alu_i); // new
-wire       issue_a_v_lsu_w    = (slot0_valid_r ? fetch0_instr_v_lsu_i    : fetch1_instr_v_lsu_i); // new
+// Mask vector flags with opcode validity to avoid X/Z propagation
+wire       issue_a_v_alu_raw_w= opcode_a_valid_r ? (slot0_valid_r ? fetch0_instr_v_alu_i    : fetch1_instr_v_alu_i) : 1'b0; // new
+wire       issue_a_v_lsu_w    = opcode_a_valid_r ? (slot0_valid_r ? fetch0_instr_v_lsu_i    : fetch1_instr_v_lsu_i) : 1'b0; // new
+// Mask VALU flag if this is actually a VLSU op
+wire       issue_a_v_alu_w    = issue_a_v_alu_raw_w & ~issue_a_v_lsu_w; // new
 wire       issue_a_invalid_w  = (slot0_valid_r ? fetch0_instr_invalid_i  : fetch1_instr_invalid_i);
 
 
@@ -403,8 +406,10 @@ wire       issue_b_branch_w   = fetch1_instr_branch_i;
 wire       issue_b_mul_w      = fetch1_instr_mul_i;
 wire       issue_b_div_w      = fetch1_instr_div_i;
 wire       issue_b_csr_w      = fetch1_instr_csr_i;
-wire       issue_b_v_alu_w    = fetch1_instr_v_alu_i; // new
-wire       issue_b_v_lsu_w    = fetch1_instr_v_lsu_i; // new
+wire       issue_b_v_alu_raw_w= opcode_b_valid_r ? fetch1_instr_v_alu_i : 1'b0; // new
+wire       issue_b_v_lsu_w    = opcode_b_valid_r ? fetch1_instr_v_lsu_i : 1'b0; // new
+// Mask VALU flag if this is actually a VLSU op
+wire       issue_b_v_alu_w    = issue_b_v_alu_raw_w & ~issue_b_v_lsu_w; // new
 wire       issue_b_invalid_w  = fetch1_instr_invalid_i;
 
 //-------------------------------------------------------------
@@ -944,7 +949,10 @@ assign exec0_opcode_valid_o = opcode_a_issue_r;
 assign mul_opcode_valid_o   = enable_muldiv_w & (pipe1_mux_mul_r ? opcode_b_issue_r : opcode_a_issue_r);
 assign div_opcode_valid_o   = enable_muldiv_w & (opcode_a_issue_r);
 assign interrupt_inhibit_o  = csr_pending_q || issue_a_csr_w;
-assign v_alu_opcode_valid_o = enable_vector_operations & (pipe1_mux_v_alu_r ? opcode_b_issue_r : opcode_a_issue_r); // new // EMO - Check
+// Only assert VALU valid when the issued slot is actually a VALU op
+assign v_alu_opcode_valid_o = enable_vector_operations &
+                              (pipe1_mux_v_alu_r ? (opcode_b_issue_r & issue_b_v_alu_w)
+                                                 : (opcode_a_issue_r & issue_a_v_alu_w)); // new
 
 assign exec1_opcode_valid_o = opcode_b_issue_r;
 

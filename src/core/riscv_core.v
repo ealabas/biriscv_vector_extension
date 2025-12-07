@@ -416,7 +416,7 @@ u_frontend
 //------------------------------------------------------------------------
 // Data-port arbitration between scalar LSU and VLSU
 //------------------------------------------------------------------------
-wire use_vlsu_w = vlsu_active_q;
+wire use_vlsu_w = vlsu_active_q | v_lsu_opcode_valid_w;
 
 assign mmu_lsu_addr_w       = use_vlsu_w ? vlsu_mem_addr_w       : lsu_mem_addr_w;
 assign mmu_lsu_data_wr_w    = use_vlsu_w ? vlsu_mem_data_wr_w    : lsu_mem_data_wr_w;
@@ -969,9 +969,10 @@ biriscv_v_lsu #(
     .vector_op_i(v_lsu_opcode_valid_w),
 
     .mem_data_rd_i(mmu_lsu_data_rd_w),
-    .mem_accept_i(mmu_lsu_accept_w & vlsu_active_q),
-    .mem_ack_i(mmu_lsu_ack_w & vlsu_active_q),
-    .mem_error_i(mmu_lsu_error_w & vlsu_active_q),
+    // Use arbiter select (use_vlsu_w) so first beat is acknowledged before vlsu_active_q rises
+    .mem_accept_i(mmu_lsu_accept_w & use_vlsu_w),
+    .mem_ack_i(mmu_lsu_ack_w & use_vlsu_w),
+    .mem_error_i(mmu_lsu_error_w & use_vlsu_w),
     .mem_resp_tag_i(mmu_lsu_resp_tag_w),
 
     .mem_addr_o(vlsu_mem_addr_w),
