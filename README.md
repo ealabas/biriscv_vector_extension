@@ -52,7 +52,7 @@ The testbench requires these files for waveform visualization. Follow these step
 
    Before running a new simulation clean up older files by running the following command:
    ```bash
-   make clear
+   make clean
    ```
 3. **Run the Simulation**  
 
