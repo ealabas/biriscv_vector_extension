@@ -329,6 +329,8 @@ wire  [ VLEN - 1:0]  v_lsu_opcode_vmask_operand_w; //new
 wire                 writeback_v_lsu_valid_w; //new
 wire  [ VLEN - 1:0]  writeback_v_lsu_value_w; //new
 wire                 writeback_v_lsu_error_w; //new
+reg   [  4:0]        vlsu_dest_q; // latch VD for VLSU until completion
+wire  [  4:0]        vlsu_writeback_vd_w; // latched VD used on completion
 
 
 
@@ -718,7 +720,7 @@ u_issue
     ,.writeback_v_alu_value_i(writeback_v_alu_value_w) //new
     ,.writeback_v_lsu_valid_i(writeback_v_lsu_valid_w | writeback_v_lsu_error_w) //new
     ,.writeback_v_lsu_value_i(writeback_v_lsu_value_w) //new
-    ,.writeback_v_lsu_vd_idx_i(v_lsu_opcode_vd_idx_w) //new
+    ,.writeback_v_lsu_vd_idx_i(vlsu_writeback_vd_w) //new
     ,.csr_result_e1_value_i(csr_result_e1_value_w)
     ,.csr_result_e1_write_i(csr_result_e1_write_w)
     ,.csr_result_e1_wdata_i(csr_result_e1_wdata_w)
@@ -949,6 +951,13 @@ always @(posedge clk_i or posedge rst_i)
     else if (v_lsu_opcode_valid_w)
         vlsu_active_q <= 1'b1;
 
+// Hold destination VD across the VLSU transaction to avoid opcode changes in issue stage
+always @(posedge clk_i or posedge rst_i)
+    if (rst_i)
+        vlsu_dest_q <= 5'b0;
+    else if (v_lsu_opcode_valid_w)
+        vlsu_dest_q <= v_lsu_opcode_vd_idx_w;
+
 biriscv_v_lsu #(
     .MEM_CACHE_ADDR_MIN(MEM_CACHE_ADDR_MIN),
     .MEM_CACHE_ADDR_MAX(MEM_CACHE_ADDR_MAX),
@@ -994,6 +1003,9 @@ biriscv_v_lsu #(
 
 // Combined LSU stall seen by issue
 assign lsu_stall_w = lsu_stall_scalar_w | vlsu_active_q;
+
+// Use latched VD for writeback to avoid index changing mid-transaction
+assign vlsu_writeback_vd_w = vlsu_dest_q;
 
 
 
