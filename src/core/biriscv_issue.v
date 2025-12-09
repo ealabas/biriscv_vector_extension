@@ -1012,6 +1012,14 @@ wire [VLEN-1:0] issue_a_vb_value_w;
 wire [VLEN-1:0] issue_b_va_value_w;
 wire [VLEN-1:0] issue_b_vb_value_w;
 
+// Gate writeback into the vector regfile so we don't clobber registers when no valid vector writeback is present
+wire        vreg_wr0_vec_alu_w = writeback_v_alu_valid_i;
+wire        vreg_wr0_vlsu_w    = writeback_v_lsu_valid_i;
+wire [4:0]  vreg_wr0_idx_w     = vreg_wr0_vlsu_w ? writeback_v_lsu_vd_idx_i :
+                                 vreg_wr0_vec_alu_w ? pipe0_vd_wb_w : 5'd0;
+wire [VLEN-1:0] vreg_wr0_val_w = vreg_wr0_vlsu_w ? writeback_v_lsu_value_i :
+                                 vreg_wr0_vec_alu_w ? pipe0_v_alu_result_wb_w : {VLEN{1'b0}};
+
 // Vector Register file
 biriscv_v_regfile
 #(
@@ -1025,8 +1033,8 @@ u_v_regfile
     .rst_i(rst_i),
 
     // Write ports
-    .rd0_i(writeback_v_lsu_valid_i ? writeback_v_lsu_vd_idx_i : pipe0_vd_wb_w),
-    .rd0_value_i(writeback_v_lsu_valid_i ? writeback_v_lsu_value_i : pipe0_v_alu_result_wb_w),
+    .rd0_i(vreg_wr0_idx_w),
+    .rd0_value_i(vreg_wr0_val_w),
     .rd1_i(pipe1_vd_wb_w),
     .rd1_value_i(pipe1_v_alu_result_wb_w),
 
