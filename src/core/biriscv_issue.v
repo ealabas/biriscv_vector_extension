@@ -370,6 +370,8 @@ wire [4:0] issue_a_rd_idx_w   = opcode_a_r[11:7];
 wire [4:0] issue_a_va_idx_w   = opcode_a_r[19:15]; // new
 wire [4:0] issue_a_vb_idx_w   = opcode_a_r[24:20]; // new
 wire [4:0] issue_a_vd_idx_w   = opcode_a_r[11:7]; // new
+// For vector stores, the data source is vs3 (vd field). Re-use the VB read port for that case.
+wire [4:0] issue_a_vsrc_idx_w = issue_a_v_lsu_w ? issue_a_vd_idx_w : issue_a_vb_idx_w;
 wire       issue_a_vmask_idx_w = 5'b0; // new
 wire       issue_a_vmask_w    = opcode_a_r[25]; // new
 // EMO - after checking ra,rb add here if needed for issue a
@@ -1030,7 +1032,7 @@ u_v_regfile
 
     // Read ports
     .ra0_i(issue_a_va_idx_w),
-    .rb0_i(issue_a_vb_idx_w),
+    .rb0_i(issue_a_vsrc_idx_w),
     .ra0_value_o(issue_a_va_value_w),
     .rb0_value_o(issue_a_vb_value_w),
 
@@ -1082,15 +1084,17 @@ begin
 
     // new
     // Bypass for Vector - WB 
-    if (pipe0_vd_wb_w == issue_a_va_idx_w)
-        issue_a_va_value_r = pipe0_v_alu_result_wb_w;
-    if (pipe0_vd_wb_w == issue_a_vb_idx_w)
-        issue_a_vb_value_r = pipe0_v_alu_result_wb_w;
+    if (!issue_a_v_lsu_w) begin
+        if (pipe0_vd_wb_w == issue_a_va_idx_w)
+            issue_a_va_value_r = pipe0_v_alu_result_wb_w;
+        if (pipe0_vd_wb_w == issue_a_vb_idx_w)
+            issue_a_vb_value_r = pipe0_v_alu_result_wb_w;
 
-    if (pipe1_vd_wb_w == issue_a_va_idx_w)
-        issue_a_va_value_r = pipe1_v_alu_result_wb_w;
-    if (pipe1_vd_wb_w == issue_a_vb_idx_w)
-        issue_a_vb_value_r = pipe1_v_alu_result_wb_w;
+        if (pipe1_vd_wb_w == issue_a_va_idx_w)
+            issue_a_va_value_r = pipe1_v_alu_result_wb_w;
+        if (pipe1_vd_wb_w == issue_a_vb_idx_w)
+            issue_a_vb_value_r = pipe1_v_alu_result_wb_w;
+    end
 
     // Bypass - E2
     if (pipe0_rd_e2_w == issue_a_ra_idx_w)
@@ -1105,15 +1109,17 @@ begin
 
     // new
     // Bypass for Vector - E2
-    if (pipe0_vd_e2_w == issue_a_va_idx_w)
-        issue_a_va_value_r = pipe0_v_alu_result_e2_w;
-    if (pipe0_vd_e2_w == issue_a_rb_idx_w)
-        issue_a_vb_value_r = pipe0_v_alu_result_e2_w;
+    if (!issue_a_v_lsu_w) begin
+        if (pipe0_vd_e2_w == issue_a_va_idx_w)
+            issue_a_va_value_r = pipe0_v_alu_result_e2_w;
+        if (pipe0_vd_e2_w == issue_a_rb_idx_w)
+            issue_a_vb_value_r = pipe0_v_alu_result_e2_w;
 
-    if (pipe1_vd_e2_w == issue_a_ra_idx_w)
-        issue_a_va_value_r = pipe1_v_alu_result_e2_w;
-    if (pipe1_vd_e2_w == issue_a_rb_idx_w)
-        issue_a_vb_value_r = pipe1_v_alu_result_e2_w;
+        if (pipe1_vd_e2_w == issue_a_ra_idx_w)
+            issue_a_va_value_r = pipe1_v_alu_result_e2_w;
+        if (pipe1_vd_e2_w == issue_a_rb_idx_w)
+            issue_a_vb_value_r = pipe1_v_alu_result_e2_w;
+    end
 
     // Bypass - E1
     if (pipe0_rd_e1_w == issue_a_ra_idx_w)
@@ -1130,15 +1136,17 @@ begin
     // EMO - Check here compare with regular registers
     // Should 1 writeback value is enough or not
     // Bypass for Vector - E1
-    if (pipe0_vd_e1_w == issue_a_va_idx_w)
-        issue_a_va_value_r = writeback_v_alu_value_i;
-    if (pipe0_vd_e1_w == issue_a_rb_idx_w)
-        issue_a_vb_value_r = writeback_v_alu_value_i;
+    if (!issue_a_v_lsu_w) begin
+        if (pipe0_vd_e1_w == issue_a_va_idx_w)
+            issue_a_va_value_r = writeback_v_alu_value_i;
+        if (pipe0_vd_e1_w == issue_a_rb_idx_w)
+            issue_a_vb_value_r = writeback_v_alu_value_i;
 
-    if (pipe1_vd_e1_w == issue_a_ra_idx_w)
-        issue_a_va_value_r = writeback_v_alu_value_i;
-    if (pipe1_vd_e1_w == issue_a_rb_idx_w)
-        issue_a_vb_value_r = writeback_v_alu_value_i;
+        if (pipe1_vd_e1_w == issue_a_ra_idx_w)
+            issue_a_va_value_r = writeback_v_alu_value_i;
+        if (pipe1_vd_e1_w == issue_a_rb_idx_w)
+            issue_a_vb_value_r = writeback_v_alu_value_i;
+    end
 
     // Reg 0 source
     if (issue_a_ra_idx_w == 5'b0)
@@ -1150,7 +1158,7 @@ begin
     // Reg v0 source
     if (issue_a_va_idx_w == 5'b0)
         issue_a_va_value_r = 32'b0;
-    if (issue_a_vb_idx_w == 5'b0)
+    if (issue_a_vsrc_idx_w == 5'b0)
         issue_a_vb_value_r = 32'b0;
 end
 
@@ -1345,7 +1353,8 @@ assign v_lsu_opcode_ra_idx_o        = opcode0_ra_idx_o;
 assign v_lsu_opcode_rb_idx_o        = opcode0_rb_idx_o;
 assign v_lsu_opcode_vd_idx_o        = opcode0_vd_idx_o;
 assign v_lsu_opcode_va_idx_o        = opcode0_va_idx_o;
-assign v_lsu_opcode_vb_idx_o        = opcode0_vb_idx_o;
+// Vector stores source data from vd (vs3), not the vs2/vb field. Use the VB operand channel to carry vd.
+assign v_lsu_opcode_vb_idx_o        = opcode0_vd_idx_o;
 assign v_lsu_opcode_ra_operand_o    = opcode0_ra_operand_o;
 assign v_lsu_opcode_rb_operand_o    = opcode0_rb_operand_o;
 assign v_lsu_opcode_va_operand_o    = opcode0_va_operand_o;

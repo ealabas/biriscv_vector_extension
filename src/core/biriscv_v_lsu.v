@@ -293,8 +293,9 @@ assign mem_invalidate_o = 1'b0;
 assign mem_writeback_o = 1'b0;
 assign mem_flush_o = 1'b0;
 
-assign vector_data_o = vector_buffer_q;
-assign vector_valid_o = (state_q == STATE_COMPLETE);
+assign vector_data_o  = vector_buffer_q;
+// Only loads should write back into the vector register file; stores do not update vector state.
+assign vector_valid_o = (state_q == STATE_COMPLETE) && is_load_q;
 assign vector_error_o = (state_q == STATE_ERROR);
 
 assign stall_o = (state_q == STATE_REQ) || (state_q == STATE_WAIT);
