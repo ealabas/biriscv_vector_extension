@@ -460,6 +460,7 @@ wire [4:0]  pipe0_rd_wb_w;
 wire [4:0]  pipe0_vd_wb_w; // new
 wire [31:0] pipe0_result_wb_w;
 wire [VLEN-1:0] pipe0_v_alu_result_wb_w; // new
+wire        pipe0_v_alu_wb_w; // new
 wire [31:0] pipe0_pc_wb_w;
 wire [31:0] pipe0_opc_wb_w;
 wire [31:0] pipe0_ra_val_wb_w;
@@ -571,6 +572,7 @@ u_pipe0_ctrl
     ,.rd_wb_o(pipe0_rd_wb_w)
     ,.vd_wb_o(pipe0_vd_wb_w) // new
     ,.v_alu_result_wb_o(pipe0_v_alu_result_wb_w) // new
+    ,.v_alu_wb_o(pipe0_v_alu_wb_w) // new
     ,.result_wb_o(pipe0_result_wb_w)
     ,.pc_wb_o(pipe0_pc_wb_w)
     ,.opcode_wb_o(pipe0_opc_wb_w)
@@ -632,6 +634,7 @@ wire [4:0]  pipe1_rd_wb_w;
 wire [4:0]  pipe1_vd_wb_w; // new
 wire [31:0] pipe1_result_wb_w;
 wire [VLEN-1:0] pipe1_v_alu_result_wb_w; // new
+wire        pipe1_v_alu_wb_w; // new
 wire [31:0] pipe1_pc_wb_w;
 wire [31:0] pipe1_opc_wb_w;
 wire [31:0] pipe1_ra_val_wb_w;
@@ -741,6 +744,7 @@ u_pipe1_ctrl
     ,.rd_wb_o(pipe1_rd_wb_w)
     ,.vd_wb_o(pipe1_vd_wb_w) // new
     ,.v_alu_result_wb_o(pipe1_v_alu_result_wb_w) // new
+    ,.v_alu_wb_o(pipe1_v_alu_wb_w) // new
     ,.result_wb_o(pipe1_result_wb_w)
     ,.pc_wb_o(pipe1_pc_wb_w)
     ,.opcode_wb_o(pipe1_opc_wb_w)
@@ -941,7 +945,7 @@ begin
             scoreboard_r[issue_b_rd_idx_w] = 1'b1;
 
         //new
-        if (opcode_b_accept_r && issue_a_v_sb_alloc_w && (|issue_b_vd_idx_w))
+        if (opcode_b_accept_r && issue_b_v_sb_alloc_w && (|issue_b_vd_idx_w))
             v_scoreboard_r[issue_b_vd_idx_w] = 1'b1;
     end    
 end
@@ -1013,7 +1017,7 @@ wire [VLEN-1:0] issue_b_va_value_w;
 wire [VLEN-1:0] issue_b_vb_value_w;
 
 // Gate writeback into the vector regfile so we don't clobber registers when no valid vector writeback is present
-wire        vreg_wr0_vec_alu_w = writeback_v_alu_valid_i;
+wire        vreg_wr0_vec_alu_w = pipe0_v_alu_wb_w;
 wire        vreg_wr0_vlsu_w    = writeback_v_lsu_valid_i;
 wire [4:0]  vreg_wr0_idx_w     = vreg_wr0_vlsu_w ? writeback_v_lsu_vd_idx_i :
                                  vreg_wr0_vec_alu_w ? pipe0_vd_wb_w : 5'd0;
@@ -1120,12 +1124,12 @@ begin
     if (!issue_a_v_lsu_w) begin
         if (pipe0_vd_e2_w == issue_a_va_idx_w)
             issue_a_va_value_r = pipe0_v_alu_result_e2_w;
-        if (pipe0_vd_e2_w == issue_a_rb_idx_w)
+        if (pipe0_vd_e2_w == issue_a_vsrc_idx_w)
             issue_a_vb_value_r = pipe0_v_alu_result_e2_w;
 
-        if (pipe1_vd_e2_w == issue_a_ra_idx_w)
+        if (pipe1_vd_e2_w == issue_a_va_idx_w)
             issue_a_va_value_r = pipe1_v_alu_result_e2_w;
-        if (pipe1_vd_e2_w == issue_a_rb_idx_w)
+        if (pipe1_vd_e2_w == issue_a_vsrc_idx_w)
             issue_a_vb_value_r = pipe1_v_alu_result_e2_w;
     end
 
@@ -1147,12 +1151,12 @@ begin
     if (!issue_a_v_lsu_w) begin
         if (pipe0_vd_e1_w == issue_a_va_idx_w)
             issue_a_va_value_r = writeback_v_alu_value_i;
-        if (pipe0_vd_e1_w == issue_a_rb_idx_w)
+        if (pipe0_vd_e1_w == issue_a_vsrc_idx_w)
             issue_a_vb_value_r = writeback_v_alu_value_i;
 
-        if (pipe1_vd_e1_w == issue_a_ra_idx_w)
+        if (pipe1_vd_e1_w == issue_a_va_idx_w)
             issue_a_va_value_r = writeback_v_alu_value_i;
-        if (pipe1_vd_e1_w == issue_a_rb_idx_w)
+        if (pipe1_vd_e1_w == issue_a_vsrc_idx_w)
             issue_a_vb_value_r = writeback_v_alu_value_i;
     end
 
@@ -1242,12 +1246,12 @@ begin
     // Bypass for Vector - E2
     if (pipe0_vd_e2_w == issue_b_va_idx_w)
         issue_b_va_value_r = pipe0_v_alu_result_e2_w;
-    if (pipe0_vd_e2_w == issue_b_rb_idx_w)
+    if (pipe0_vd_e2_w == issue_b_vb_idx_w)
         issue_b_vb_value_r = pipe0_v_alu_result_e2_w;
 
-    if (pipe1_vd_e2_w == issue_b_ra_idx_w)
+    if (pipe1_vd_e2_w == issue_b_va_idx_w)
         issue_b_va_value_r = pipe1_v_alu_result_e2_w;
-    if (pipe1_vd_e2_w == issue_b_rb_idx_w)
+    if (pipe1_vd_e2_w == issue_b_vb_idx_w)
         issue_b_vb_value_r = pipe1_v_alu_result_e2_w;
 
     // Bypass - E1
@@ -1267,12 +1271,12 @@ begin
     // Bypass for Vector - E1
     if (pipe0_vd_e1_w == issue_b_va_idx_w)
         issue_b_va_value_r = writeback_v_alu_value_i;
-    if (pipe0_vd_e1_w == issue_b_rb_idx_w)
+    if (pipe0_vd_e1_w == issue_b_vb_idx_w)
         issue_b_vb_value_r = writeback_v_alu_value_i;
 
-    if (pipe1_vd_e1_w == issue_b_ra_idx_w)
+    if (pipe1_vd_e1_w == issue_b_va_idx_w)
         issue_b_va_value_r = writeback_v_alu_value_i;
-    if (pipe1_vd_e1_w == issue_b_rb_idx_w)
+    if (pipe1_vd_e1_w == issue_b_vb_idx_w)
         issue_b_vb_value_r = writeback_v_alu_value_i;
 
     // Reg 0 source

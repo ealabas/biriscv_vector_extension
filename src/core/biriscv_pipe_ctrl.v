@@ -137,6 +137,7 @@ module biriscv_pipe_ctrl
     ,output [  4:0]  rd_wb_o
     ,output [  4:0]  vd_wb_o // new
     ,output [VLEN-1:0] v_alu_result_wb_o // new
+    ,output          v_alu_wb_o // new
     ,output [31:0]   result_wb_o
     ,output [31:0]   pc_wb_o
     ,output [31:0]   opcode_wb_o
@@ -219,7 +220,8 @@ begin
     valid_e1_q                  <= 1'b1;
     ctrl_e1_q[`PCINFO_V_LSU]    <= issue_v_lsu_i & ~take_interrupt_i; // new
     ctrl_e1_q[`PCINFO_V_ALU]    <= issue_v_alu_i & ~take_interrupt_i; // new
-    ctrl_e1_q[`PCINFO_ALU]      <= ~(issue_lsu_i | issue_csr_i | issue_div_i | issue_mul_i);
+    // Treat scalar ALU as anything that isn't a multi-cycle / vector op
+    ctrl_e1_q[`PCINFO_ALU]      <= ~(issue_lsu_i | issue_csr_i | issue_div_i | issue_mul_i | issue_v_alu_i | issue_v_lsu_i);
     ctrl_e1_q[`PCINFO_LOAD]     <= issue_lsu_i &  issue_rd_valid_i & ~take_interrupt_i; // TODO: Check
     ctrl_e1_q[`PCINFO_STORE]    <= issue_lsu_i & ~issue_rd_valid_i & ~take_interrupt_i;
     ctrl_e1_q[`PCINFO_CSR]      <= issue_csr_i & ~take_interrupt_i;
@@ -227,7 +229,8 @@ begin
     ctrl_e1_q[`PCINFO_MUL]      <= issue_mul_i & ~take_interrupt_i;
     ctrl_e1_q[`PCINFO_BRANCH]   <= issue_branch_i & ~take_interrupt_i;
     ctrl_e1_q[`PCINFO_RD_VALID] <= issue_rd_valid_i & ~take_interrupt_i;
-    ctrl_e1_q[`PCINFO_VD_VALID] <= issue_vd_valid_i & ~take_interrupt_i; // new
+    // For vector ALU/LSU ops we always need a destination mask (vd)
+    ctrl_e1_q[`PCINFO_VD_VALID] <= ((issue_v_alu_i | issue_v_lsu_i) ? 1'b1 : issue_vd_valid_i) & ~take_interrupt_i; // new
     ctrl_e1_q[`PCINFO_INTR]     <= take_interrupt_i;
     ctrl_e1_q[`PCINFO_COMPLETE] <= 1'b1;
 
@@ -254,7 +257,7 @@ begin
     operand_rb_e1_q <= 32'b0;
     exception_e1_q  <= `EXCEPTION_W'b0;
     operand_va_e1_q <= `len'b0; // new
-    operand_va_e1_q <= `len'b0; // new
+    operand_vb_e1_q <= `len'b0; // new
     mask_vm_e1_q    <= `len'b0; // new
 end
 
@@ -356,6 +359,7 @@ begin
     operand_va_e2_q <= operand_va_e1_q; // new
     operand_vb_e2_q <= operand_vb_e1_q; // new
     mask_vm_e2_q    <= mask_vm_e1_q; // new
+    v_alu_result_e2_q <= `len'b0; // new
 
     // Launch interrupt
     if (ctrl_e1_q[`PCINFO_INTR])
@@ -398,16 +402,22 @@ end
 wire   load_store_e2_w = ctrl_e2_q[`PCINFO_LOAD] | ctrl_e2_q[`PCINFO_STORE];
 assign load_e2_o       = ctrl_e2_q[`PCINFO_LOAD];
 assign mul_e2_o        = ctrl_e2_q[`PCINFO_MUL];
-assign rd_e2_o         = {5{(valid_e2_w && ctrl_e2_q[`PCINFO_RD_VALID] && ~stall_o)}} & opcode_e2_q[`RD_IDX_R];
+assign rd_e2_o         = {5{(valid_e2_w && ctrl_e2_q[`PCINFO_RD_VALID])}} & opcode_e2_q[`RD_IDX_R];
 assign result_e2_o     = result_e2_r;
-assign v_alu_e2_o      = ctrl_e2_q[`PCINFO_ALU]; // new //EMO - Where to add v_alu_e2_o
+assign v_alu_e2_o      = ctrl_e2_q[`PCINFO_V_ALU]; // new
 assign v_alu_result_e2_o = v_alu_result_e2_r; // new 
-assign vd_e2_o         = {5{(valid_e2_w && ctrl_e2_q[`PCINFO_VD_VALID] && ~stall_o)}} & opcode_e2_q[`VD_IDX_R]; // new
+assign vd_e2_o         = {5{(valid_e2_w && ctrl_e2_q[`PCINFO_VD_VALID])}} & opcode_e2_q[`VD_IDX_R]; // new
+
+// Guard against X on control bits when not active
+wire v_alu_busy_w = (valid_e1_q && ctrl_e1_q[`PCINFO_V_ALU]) ? (v_alu_complete_i === 1'b1 ? 1'b0 : 1'b1) : 1'b0;
+wire v_lsu_busy_w = (valid_e1_q && ctrl_e1_q[`PCINFO_V_LSU]) ? (v_lsu_complete_i === 1'b1 ? 1'b0 : 1'b1) : 1'b0;
 
 // Load store result not ready when reaching E2
 assign stall_o         = (ctrl_e1_q[`PCINFO_DIV] && ~div_complete_i) || ((ctrl_e2_q[`PCINFO_LOAD] | ctrl_e2_q[`PCINFO_STORE]) & ~mem_complete_i)
-                         || (ctrl_e1_q[`PCINFO_V_ALU] && ~v_alu_complete_i)
-                         || (ctrl_e1_q[`PCINFO_V_LSU] && ~v_lsu_complete_i); // stall while VLSU owns mem interface
+                         || v_alu_busy_w
+                         || v_lsu_busy_w; // stall while VLSU owns mem interface
+// Treat X as not-stalling to avoid propagating unknowns into masks
+wire stall_clean_w     = (stall_o === 1'b1) ? 1'b1 : 1'b0;
 
 reg [`EXCEPTION_W-1:0] exception_e2_r;
 always @ *
@@ -522,24 +532,28 @@ begin
     operand_va_wb_q <= operand_va_e2_q; // new
     operand_vb_wb_q <= operand_vb_e2_q; // new
     mask_vm_wb_q    <= mask_vm_e2_q; // new
+    result_wb_q        <= result_e2_q;
+    v_alu_result_wb_q  <= v_alu_result_e2_q; // carry staged VALU result by default
 
     if (valid_e2_w && (ctrl_e2_q[`PCINFO_LOAD] || ctrl_e2_q[`PCINFO_STORE]))
         result_wb_q <= mem_result_e2_i;
     else if (valid_e2_w && ctrl_e2_q[`PCINFO_MUL])
         result_wb_q <= mul_result_e2_i;
-    else if (valid_e2_w && ctrl_e2_q[`PCINFO_V_ALU])
-        v_alu_result_wb_q <= v_alu_result_i; // new //EMO - CHECK HERE
-    else
-        result_wb_q <= result_e2_q;
+
+    if (valid_e2_w && ctrl_e2_q[`PCINFO_V_ALU])
+        v_alu_result_wb_q <= v_alu_result_e2_r; // new
 end
 
 // Instruction completion (for debug)
 wire complete_wb_w     = ctrl_wb_q[`PCINFO_COMPLETE] & ~issue_stall_i;
 
-assign valid_wb_o      = valid_wb_q & ~issue_stall_i;
+wire issue_stall_clr_w = (issue_stall_i === 1'b1) ? 1'b0 : 1'b1;
+wire stall_mask_w      = stall_clean_w;
+assign valid_wb_o      = valid_wb_q & issue_stall_clr_w;
+assign v_alu_wb_o      = valid_wb_o && ctrl_wb_q[`PCINFO_V_ALU];
 assign csr_wb_o        = ctrl_wb_q[`PCINFO_CSR] & ~issue_stall_i; // TODO: Fault disable???
-assign rd_wb_o         = {5{(valid_wb_o && ctrl_wb_q[`PCINFO_RD_VALID] && ~stall_o)}} & opcode_wb_q[`RD_IDX_R];
-assign vd_wb_o         = opcode_e2_q[`VD_IDX_R]; // new // EMO - Check here for validation, for testing it is forced now.
+assign rd_wb_o         = {5{(valid_wb_o && ctrl_wb_q[`PCINFO_RD_VALID] && ~stall_mask_w)}} & opcode_wb_q[`RD_IDX_R];
+assign vd_wb_o         = {5{(valid_wb_o && ctrl_wb_q[`PCINFO_VD_VALID] && ~stall_mask_w)}} & opcode_wb_q[`VD_IDX_R]; // new
 assign v_alu_result_wb_o = v_alu_result_wb_q; // new
 assign result_wb_o     = result_wb_q;
 assign pc_wb_o         = pc_wb_q;

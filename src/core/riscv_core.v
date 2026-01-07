@@ -926,12 +926,12 @@ u_v_alu_exec
     ,.opcode_vd_idx_i(v_alu_opcode_vd_idx_w)
     ,.opcode_ra_idx_i(v_alu_opcode_ra_idx_w)
     ,.opcode_rb_idx_i(v_alu_opcode_rb_idx_w)
-    ,.opcode_va_idx_i(v_alu_opcode_vb_idx_w) //EMO - check
-    ,.opcode_vb_idx_i(v_alu_opcode_va_idx_w) //EMO - check
+    ,.opcode_va_idx_i(v_alu_opcode_va_idx_w)
+    ,.opcode_vb_idx_i(v_alu_opcode_vb_idx_w)
     ,.opcode_ra_operand_i(v_alu_opcode_ra_operand_w)
     ,.opcode_rb_operand_i(v_alu_opcode_rb_operand_w)
-    ,.opcode_va_operand_i(v_alu_opcode_vb_operand_w) //EMO - check
-    ,.opcode_vb_operand_i(v_alu_opcode_va_operand_w) //EMO - check
+    ,.opcode_va_operand_i(v_alu_opcode_va_operand_w)
+    ,.opcode_vb_operand_i(v_alu_opcode_vb_operand_w)
     ,.opcode_vmask_operand_i(v_alu_opcode_vmask_operand_w)
 
     // Outputs
