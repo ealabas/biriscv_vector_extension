@@ -1,15 +1,15 @@
 [*]
 [*] GTKWave Analyzer v3.3.121 (w)1999-2024 BSI
-[*] Wed Jan  7 00:19:49 2026
+[*] Wed Jan  7 01:10:05 2026
 [*]
 [dumpfile] "/home/emo/projects/biriscv_vector_extension/tb/tb_core_icarus/waveform.vcd"
-[dumpfile_mtime] "Wed Jan  7 00:18:37 2026"
-[dumpfile_size] 13642974
+[dumpfile_mtime] "Wed Jan  7 01:03:24 2026"
+[dumpfile_size] 24450198
 [savefile] "/home/emo/projects/biriscv_vector_extension/tb/tb_core_icarus/gtksettings.sav"
-[timestart] 109200
+[timestart] 108900
 [size] 1920 930
-[pos] 1863 -23
-*-16.000000 375000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[pos] 1811 -23
+*-16.000000 315000 315000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] tb_top.
 [treeopen] tb_top.u_dut.
 [treeopen] tb_top.u_dut.u_frontend.
@@ -54,6 +54,15 @@ tb_top.mem_d_data_rd_w[31:0]
 tb_top.mem_d_error_w
 @1401200
 -D
+@200
+-
+@28
+tb_top.u_dut.u_issue.writeback_v_lsu_valid_i
+@22
+tb_top.u_dut.u_issue.writeback_v_lsu_value_i[127:0]
+tb_top.u_dut.u_issue.writeback_v_lsu_vd_idx_i[4:0]
+@201
+-
 @800200
 -V_ALU
 @200
@@ -66,13 +75,16 @@ tb_top.u_dut.u_frontend.fetch0_valid_o
 -
 @28
 tb_top.u_dut.u_issue.v_alu_opcode_valid_o
-@23
-tb_top.u_dut.u_issue.v_alu_opcode_vd_idx_o[4:0]
 @22
+tb_top.u_dut.u_issue.v_alu_opcode_vd_idx_o[4:0]
 tb_top.u_dut.u_issue.v_alu_opcode_va_idx_o[4:0]
 tb_top.u_dut.u_issue.v_alu_opcode_va_operand_o[127:0]
 tb_top.u_dut.u_issue.v_alu_opcode_vb_idx_o[4:0]
 tb_top.u_dut.u_issue.v_alu_opcode_vb_operand_o[127:0]
+@28
+tb_top.u_dut.u_issue.v_lsu_pending_q
+@22
+tb_top.u_dut.u_issue.v_lsu_dest_q[4:0]
 @200
 -
 @28

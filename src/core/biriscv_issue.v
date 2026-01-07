@@ -787,6 +787,9 @@ assign branch_info_pc_o           = (pipe1_branch_e1_w & branch_exec1_request_i)
 reg div_pending_q;
 reg csr_pending_q;
 reg v_alu_pending_q; // new
+reg v_lsu_pending_q; // new
+reg [4:0] v_lsu_dest_q; // new
+reg v_lsu_complete_d; // new
 
 // Division operations take 2 - 34 cycles and stall
 // the pipeline (complete out-of-pipe) until completed.
@@ -825,6 +828,30 @@ else if (v_alu_opcode_valid_o && issue_a_v_alu_w)
     v_alu_pending_q <= 1'b1;
 else if (writeback_v_alu_valid_i)
     v_alu_pending_q <= 1'b0;
+
+// Vector LSU operations are multi-cycle; block dependent ops until completion.
+always @ (posedge clk_i or posedge rst_i)
+if (rst_i)
+begin
+    v_lsu_pending_q <= 1'b0;
+    v_lsu_dest_q    <= 5'b0;
+    v_lsu_complete_d <= 1'b0;
+end
+else if (pipe0_squash_e1_e2_w || pipe1_squash_e1_e2_w)
+    v_lsu_pending_q <= 1'b0;
+else if (v_lsu_opcode_valid_o)
+begin
+    v_lsu_pending_q <= 1'b1;
+    v_lsu_dest_q    <= v_lsu_opcode_vd_idx_o;
+end
+else if (v_lsu_complete_d)
+    v_lsu_pending_q <= 1'b0;
+
+always @ (posedge clk_i or posedge rst_i)
+if (rst_i)
+    v_lsu_complete_d <= 1'b0;
+else
+    v_lsu_complete_d <= writeback_v_lsu_valid_i;
 
 //-------------------------------------------------------------
 // Issue / scheduling logic
@@ -891,6 +918,10 @@ begin
         v_scoreboard_r[pipe0_vd_e1_w] = 1'b1;
     if (pipe1_v_alu_e1_w)
         v_scoreboard_r[pipe1_vd_e1_w] = 1'b1;
+
+    // Track pending VLSU destination to stall dependent vector ops
+    if (v_lsu_pending_q)
+        v_scoreboard_r[v_lsu_dest_q] = 1'b1;
 
 
     // Do not start multiply, division or CSR operation in the cycle after a load (leaving only ALU operations and branches)
@@ -1097,16 +1128,22 @@ begin
     // new
     // Bypass for Vector - WB 
     if (!issue_a_v_lsu_w) begin
-        if (pipe0_vd_wb_w == issue_a_va_idx_w)
+        if (pipe0_v_alu_wb_w && (pipe0_vd_wb_w == issue_a_va_idx_w))
             issue_a_va_value_r = pipe0_v_alu_result_wb_w;
-        if (pipe0_vd_wb_w == issue_a_vb_idx_w)
+        if (pipe0_v_alu_wb_w && (pipe0_vd_wb_w == issue_a_vb_idx_w))
             issue_a_vb_value_r = pipe0_v_alu_result_wb_w;
 
-        if (pipe1_vd_wb_w == issue_a_va_idx_w)
+        if (pipe1_v_alu_wb_w && (pipe1_vd_wb_w == issue_a_va_idx_w))
             issue_a_va_value_r = pipe1_v_alu_result_wb_w;
-        if (pipe1_vd_wb_w == issue_a_vb_idx_w)
+        if (pipe1_v_alu_wb_w && (pipe1_vd_wb_w == issue_a_vb_idx_w))
             issue_a_vb_value_r = pipe1_v_alu_result_wb_w;
     end
+
+    // Bypass from VLSU writeback
+    if (writeback_v_lsu_valid_i && (writeback_v_lsu_vd_idx_i == issue_a_va_idx_w))
+        issue_a_va_value_r = writeback_v_lsu_value_i;
+    if (writeback_v_lsu_valid_i && (writeback_v_lsu_vd_idx_i == issue_a_vsrc_idx_w))
+        issue_a_vb_value_r = writeback_v_lsu_value_i;
 
     // Bypass - E2
     if (pipe0_rd_e2_w == issue_a_ra_idx_w)
@@ -1122,14 +1159,14 @@ begin
     // new
     // Bypass for Vector - E2
     if (!issue_a_v_lsu_w) begin
-        if (pipe0_vd_e2_w == issue_a_va_idx_w)
+        if (pipe0_v_alu_e2_w && (pipe0_vd_e2_w == issue_a_va_idx_w))
             issue_a_va_value_r = pipe0_v_alu_result_e2_w;
-        if (pipe0_vd_e2_w == issue_a_vsrc_idx_w)
+        if (pipe0_v_alu_e2_w && (pipe0_vd_e2_w == issue_a_vsrc_idx_w))
             issue_a_vb_value_r = pipe0_v_alu_result_e2_w;
 
-        if (pipe1_vd_e2_w == issue_a_va_idx_w)
+        if (pipe1_v_alu_e2_w && (pipe1_vd_e2_w == issue_a_va_idx_w))
             issue_a_va_value_r = pipe1_v_alu_result_e2_w;
-        if (pipe1_vd_e2_w == issue_a_vsrc_idx_w)
+        if (pipe1_v_alu_e2_w && (pipe1_vd_e2_w == issue_a_vsrc_idx_w))
             issue_a_vb_value_r = pipe1_v_alu_result_e2_w;
     end
 
@@ -1149,14 +1186,14 @@ begin
     // Should 1 writeback value is enough or not
     // Bypass for Vector - E1
     if (!issue_a_v_lsu_w) begin
-        if (pipe0_vd_e1_w == issue_a_va_idx_w)
+        if (pipe0_v_alu_e1_w && (pipe0_vd_e1_w == issue_a_va_idx_w))
             issue_a_va_value_r = writeback_v_alu_value_i;
-        if (pipe0_vd_e1_w == issue_a_vsrc_idx_w)
+        if (pipe0_v_alu_e1_w && (pipe0_vd_e1_w == issue_a_vsrc_idx_w))
             issue_a_vb_value_r = writeback_v_alu_value_i;
 
-        if (pipe1_vd_e1_w == issue_a_va_idx_w)
+        if (pipe1_v_alu_e1_w && (pipe1_vd_e1_w == issue_a_va_idx_w))
             issue_a_va_value_r = writeback_v_alu_value_i;
-        if (pipe1_vd_e1_w == issue_a_vsrc_idx_w)
+        if (pipe1_v_alu_e1_w && (pipe1_vd_e1_w == issue_a_vsrc_idx_w))
             issue_a_vb_value_r = writeback_v_alu_value_i;
     end
 
@@ -1221,15 +1258,21 @@ begin
 
     // new
     // Bypass for Vector - WB 
-    if (pipe0_vd_wb_w == issue_b_va_idx_w)
+    if (pipe0_v_alu_wb_w && (pipe0_vd_wb_w == issue_b_va_idx_w))
         issue_b_va_value_r = pipe0_v_alu_result_wb_w;
-    if (pipe0_vd_wb_w == issue_b_vb_idx_w)
+    if (pipe0_v_alu_wb_w && (pipe0_vd_wb_w == issue_b_vb_idx_w))
         issue_b_vb_value_r = pipe0_v_alu_result_wb_w;
 
-    if (pipe1_vd_wb_w == issue_b_va_idx_w)
+    if (pipe1_v_alu_wb_w && (pipe1_vd_wb_w == issue_b_va_idx_w))
         issue_b_va_value_r = pipe1_v_alu_result_wb_w;
-    if (pipe1_vd_wb_w == issue_b_vb_idx_w)
+    if (pipe1_v_alu_wb_w && (pipe1_vd_wb_w == issue_b_vb_idx_w))
         issue_b_vb_value_r = pipe1_v_alu_result_wb_w;
+
+    // Bypass from VLSU writeback
+    if (writeback_v_lsu_valid_i && (writeback_v_lsu_vd_idx_i == issue_b_va_idx_w))
+        issue_b_va_value_r = writeback_v_lsu_value_i;
+    if (writeback_v_lsu_valid_i && (writeback_v_lsu_vd_idx_i == issue_b_vb_idx_w))
+        issue_b_vb_value_r = writeback_v_lsu_value_i;
 
     // Bypass - E2
     if (pipe0_rd_e2_w == issue_b_ra_idx_w)
@@ -1244,14 +1287,14 @@ begin
 
     // new
     // Bypass for Vector - E2
-    if (pipe0_vd_e2_w == issue_b_va_idx_w)
+    if (pipe0_v_alu_e2_w && (pipe0_vd_e2_w == issue_b_va_idx_w))
         issue_b_va_value_r = pipe0_v_alu_result_e2_w;
-    if (pipe0_vd_e2_w == issue_b_vb_idx_w)
+    if (pipe0_v_alu_e2_w && (pipe0_vd_e2_w == issue_b_vb_idx_w))
         issue_b_vb_value_r = pipe0_v_alu_result_e2_w;
 
-    if (pipe1_vd_e2_w == issue_b_va_idx_w)
+    if (pipe1_v_alu_e2_w && (pipe1_vd_e2_w == issue_b_va_idx_w))
         issue_b_va_value_r = pipe1_v_alu_result_e2_w;
-    if (pipe1_vd_e2_w == issue_b_vb_idx_w)
+    if (pipe1_v_alu_e2_w && (pipe1_vd_e2_w == issue_b_vb_idx_w))
         issue_b_vb_value_r = pipe1_v_alu_result_e2_w;
 
     // Bypass - E1
@@ -1269,14 +1312,14 @@ begin
     // EMO - Check here compare with regular registers
     // Should 1 writeback value is enough or not
     // Bypass for Vector - E1
-    if (pipe0_vd_e1_w == issue_b_va_idx_w)
+    if (pipe0_v_alu_e1_w && (pipe0_vd_e1_w == issue_b_va_idx_w))
         issue_b_va_value_r = writeback_v_alu_value_i;
-    if (pipe0_vd_e1_w == issue_b_vb_idx_w)
+    if (pipe0_v_alu_e1_w && (pipe0_vd_e1_w == issue_b_vb_idx_w))
         issue_b_vb_value_r = writeback_v_alu_value_i;
 
-    if (pipe1_vd_e1_w == issue_b_va_idx_w)
+    if (pipe1_v_alu_e1_w && (pipe1_vd_e1_w == issue_b_va_idx_w))
         issue_b_va_value_r = writeback_v_alu_value_i;
-    if (pipe1_vd_e1_w == issue_b_vb_idx_w)
+    if (pipe1_v_alu_e1_w && (pipe1_vd_e1_w == issue_b_vb_idx_w))
         issue_b_vb_value_r = writeback_v_alu_value_i;
 
     // Reg 0 source
