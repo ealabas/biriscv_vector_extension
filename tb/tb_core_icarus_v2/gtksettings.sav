@@ -1,15 +1,15 @@
 [*]
 [*] GTKWave Analyzer v3.3.121 (w)1999-2024 BSI
-[*] Thu Jan 15 19:05:56 2026
+[*] Thu Jan 15 20:30:54 2026
 [*]
-[dumpfile] "/home/emo/projects/biriscv_vector_extension/tb/tb_core_icarus/waveform.vcd"
-[dumpfile_mtime] "Thu Jan 15 18:54:36 2026"
-[dumpfile_size] 9952629
-[savefile] "/home/emo/projects/biriscv_vector_extension/tb/tb_core_icarus/gtksettings.sav"
-[timestart] 91200
+[dumpfile] "/home/emo/projects/biriscv_vector_extension/tb/tb_core_icarus_v2/waveform.vcd"
+[dumpfile_mtime] "Thu Jan 15 20:29:19 2026"
+[dumpfile_size] 994471
+[savefile] "/home/emo/projects/biriscv_vector_extension/tb/tb_core_icarus_v2/gtksettings.sav"
+[timestart] 0
 [size] 1920 930
 [pos] -27 -24
-*-15.314104 225000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-15.314104 385000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] tb_top.
 [treeopen] tb_top.u_dut.
 [treeopen] tb_top.u_dut.u_frontend.
@@ -225,7 +225,7 @@ tb_top.u_dut.u_issue.u_pipe0_ctrl.pc_e2_q[31:0]
 tb_top.u_dut.u_issue.u_pipe0_ctrl.pc_wb_q[31:0]
 @1401200
 -PC
-@800200
+@c00200
 -V_Regfile
 @22
 tb_top.u_dut.u_issue.u_v_regfile.rd0_value_i[127:0]
@@ -238,7 +238,7 @@ tb_top.u_dut.u_issue.u_v_regfile.REGFILE.x4_v4_w[127:0]
 tb_top.u_dut.u_issue.u_v_regfile.REGFILE.x5_v5_w[127:0]
 tb_top.u_dut.u_issue.u_v_regfile.REGFILE.x6_v6_w[127:0]
 tb_top.u_dut.u_issue.u_v_regfile.REGFILE.x7_v7_w[127:0]
-@1000200
+@1401200
 -V_Regfile
 @c00200
 -Regfile

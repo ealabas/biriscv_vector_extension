@@ -310,6 +310,7 @@ wire  [ 10:0]  vlsu_mem_req_tag_w;
 wire           vlsu_mem_invalidate_w;
 wire           vlsu_mem_writeback_w;
 wire           vlsu_mem_flush_w;
+wire           vlsu_stall_w;
 reg            vlsu_active_q;
 // Vector LSU opcode bundle
 wire  [ 31:0]        v_lsu_opcode_opcode_w; //new
@@ -993,7 +994,7 @@ biriscv_v_lsu #(
     .mem_invalidate_o(vlsu_mem_invalidate_w),
     .mem_writeback_o(vlsu_mem_writeback_w),
     .mem_flush_o(vlsu_mem_flush_w),
-    .stall_o(), // serialized via vlsu_active_q
+    .stall_o(vlsu_stall_w),
 
     .vector_data_o(writeback_v_lsu_value_w),
     .vector_valid_o(writeback_v_lsu_valid_w),
@@ -1002,7 +1003,7 @@ biriscv_v_lsu #(
 
 
 // Combined LSU stall seen by issue
-assign lsu_stall_w = lsu_stall_scalar_w | vlsu_active_q;
+assign lsu_stall_w = lsu_stall_scalar_w | vlsu_active_q | vlsu_stall_w;
 
 // Use latched VD for writeback to avoid index changing mid-transaction
 assign vlsu_writeback_vd_w = vlsu_dest_q;

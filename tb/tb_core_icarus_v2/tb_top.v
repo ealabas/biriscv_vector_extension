@@ -7,6 +7,29 @@ reg [7:0] mem[131072:0];
 integer i;
 integer f;
 
+integer fd;
+integer w, b;
+reg [7:0] data;
+reg [63:0] word;
+
+initial begin
+    #100000;
+
+    fd = $fopen("tcm_dump_words.hex", "w");
+
+    for (w = 0; w < 16384; w = w + 1) begin
+        word = 64'd0;
+        for (b = 0; b < 8; b = b + 1) begin
+            u_mem.read(w*8 + b, data);
+            word[8*b +: 8] = data;
+        end
+        $fdisplay(fd, "%016x", word);
+    end
+
+    $fclose(fd);
+    $finish;
+end
+
 initial
 begin
     $display("Starting bench");

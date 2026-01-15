@@ -59,4 +59,5 @@ view:
 
 clean:
 	rm -rf $(BUILD_DIR) *.vcd
+	rm -rf $(BUILD_DIR) *.hex
 
