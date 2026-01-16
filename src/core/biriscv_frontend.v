@@ -210,8 +210,8 @@ u_decode
     ,.fetch_out1_instr_csr_o(fetch1_instr_csr_o)
     ,.fetch_out1_instr_rd_valid_o(fetch1_instr_rd_valid_o)
     ,.fetch_out1_instr_invalid_o(fetch1_instr_invalid_o)
-    ,.fetch_out1_instr_lsu_v_o(fetch1_instr_lsu_v_o) //new
-    ,.fetch_out1_instr_alu_v_o(fetch1_instr_alu_v_o) //new
+    ,.fetch_out1_instr_lsu_v_o(fetch1_instr_v_lsu_o) //new
+    ,.fetch_out1_instr_alu_v_o(fetch1_instr_v_alu_o) //new
 
 );
 

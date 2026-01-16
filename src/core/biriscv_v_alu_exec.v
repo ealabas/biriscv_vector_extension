@@ -88,7 +88,8 @@ wire v_alu_inst_w    = ((opcode_opcode_i & `INST_VADD_VV_MASK) == `INST_VADD_VV)
                       ((opcode_opcode_i & `INST_VMINU_VV_MASK) == `INST_VMINU_VV)||
                       ((opcode_opcode_i & `INST_VMINU_VX_MASK) == `INST_VMINU_VX)||
                       ((opcode_opcode_i & `INST_VMAXU_VV_MASK) == `INST_VMAXU_VV)||
-                      ((opcode_opcode_i & `INST_VMAXU_VX_MASK) == `INST_VMAXU_VX);
+                      ((opcode_opcode_i & `INST_VMAXU_VX_MASK) == `INST_VMAXU_VX)||
+                      ((opcode_opcode_i & `INST_VMUL_VV_MASK) == `INST_VMUL_VV);
 
 always @ *
 begin
@@ -260,6 +261,21 @@ begin
             end
         end
     end         
+    else if ((opcode_opcode_i & `INST_VMUL_VV_MASK) == `INST_VMUL_VV) // vmul.vv
+    begin
+        if (vm_r == 1'b1) begin
+            for (i = 0; i < VLEN / ELEN; i = i + 1) begin
+                result_r[(i+1)*ELEN-1 -: ELEN] = opcode_va_operand_i[(i+1)*ELEN-1 -: ELEN] * opcode_vb_operand_i[(i+1)*ELEN-1 -: ELEN];
+            end
+        end
+        else begin
+            for (i = 0; i < VLEN / ELEN; i = i + 1) begin
+                result_r[(i+1)*ELEN-1 -: ELEN] = opcode_vmask_operand_i[i * ELEN]
+                                                ? opcode_va_operand_i[(i+1)*ELEN-1 -: ELEN] * opcode_vb_operand_i[(i+1)*ELEN-1 -: ELEN]
+                                                : {ELEN{1'b0}};
+            end
+        end
+    end
 end
 
 

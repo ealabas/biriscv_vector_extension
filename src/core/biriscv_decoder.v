@@ -143,7 +143,8 @@ wire invalid_w =    valid_i &&
                     (enable_vector_extension_i && (opcode_i & `INST_VMINU_VV_MASK) == `INST_VMINU_VV)     ||
                     (enable_vector_extension_i && (opcode_i & `INST_VMINU_VX_MASK) == `INST_VMINU_VX)     ||
                     (enable_vector_extension_i && (opcode_i & `INST_VMAXU_VV_MASK) == `INST_VMAXU_VV)     ||
-                    (enable_vector_extension_i && (opcode_i & `INST_VMAXU_VX_MASK) == `INST_VMAXU_VX)
+                    (enable_vector_extension_i && (opcode_i & `INST_VMAXU_VX_MASK) == `INST_VMAXU_VX)     ||
+                    (enable_vector_extension_i && (opcode_i & `INST_VMUL_VV_MASK) == `INST_VMUL_VV)
                     );
 
 assign invalid_o = invalid_w;
@@ -283,6 +284,7 @@ assign alu_v_o =    enable_vector_extension_i &&
                     ((opcode_i & `INST_VMINU_VV_MASK) == `INST_VMINU_VV) ||
                     ((opcode_i & `INST_VMINU_VX_MASK) == `INST_VMINU_VX)   ||
                     ((opcode_i & `INST_VMAXU_VV_MASK) == `INST_VMAXU_VV) ||
-                    ((opcode_i & `INST_VMAXU_VX_MASK) == `INST_VMAXU_VX));
+                    ((opcode_i & `INST_VMAXU_VX_MASK) == `INST_VMAXU_VX) ||
+                    ((opcode_i & `INST_VMUL_VV_MASK) == `INST_VMUL_VV));
 
 endmodule

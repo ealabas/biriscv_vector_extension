@@ -1,7 +1,7 @@
 ###############################################################################
 # Variables: Program ELF
 ###############################################################################
-ELF_FILE ?= vs8_v2.elf
+ELF_FILE ?= s.elf
 
 OBJCOPY ?= riscv32-unknown-elf-objcopy
 ifeq ($(shell which $(OBJCOPY)),)

@@ -1,15 +1,15 @@
 [*]
 [*] GTKWave Analyzer v3.3.121 (w)1999-2024 BSI
-[*] Thu Jan 15 20:30:54 2026
+[*] Fri Jan 16 22:33:41 2026
 [*]
 [dumpfile] "/home/emo/projects/biriscv_vector_extension/tb/tb_core_icarus_v2/waveform.vcd"
-[dumpfile_mtime] "Thu Jan 15 20:29:19 2026"
-[dumpfile_size] 994471
+[dumpfile_mtime] "Fri Jan 16 21:46:40 2026"
+[dumpfile_size] 3482750
 [savefile] "/home/emo/projects/biriscv_vector_extension/tb/tb_core_icarus_v2/gtksettings.sav"
 [timestart] 0
 [size] 1920 930
 [pos] -27 -24
-*-15.314104 385000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-14.912304 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] tb_top.
 [treeopen] tb_top.u_dut.
 [treeopen] tb_top.u_dut.u_frontend.
@@ -46,6 +46,10 @@ tb_top.u_dut.u_issue.v_lsu_opcode_valid_o
 tb_top.u_dut.u_issue.issue_a_v_lsu_w
 tb_top.u_dut.u_issue.fetch0_valid_i
 tb_top.u_dut.u_issue.fetch0_instr_v_lsu_i
+@22
+tb_top.u_dut.u_issue.fetch0_pc_i[31:0]
+@28
+tb_top.u_dut.u_issue.fetch0_instr_exec_i
 @200
 -
 @22
@@ -54,7 +58,7 @@ tb_top.u_dut.u_issue.pipe0_opc_wb_w[31:0]
 tb_top.u_dut.u_issue.pipe0_valid_wb_w
 @1401200
 -Opcodes
-@c00200
+@800200
 -I
 @28
 tb_top.mem_i_rd_w
@@ -64,9 +68,9 @@ tb_top.mem_i_pc_w[31:0]
 tb_top.mem_i_valid_w
 @22
 tb_top.mem_i_inst_w[63:0]
-@1401200
+@1000200
 -I
-@c00200
+@800200
 -D
 @28
 tb_top.mem_d_rd_w
@@ -83,7 +87,32 @@ tb_top.u_mem.mem_d_resp_tag_o[10:0]
 tb_top.mem_d_data_rd_w[31:0]
 @28
 tb_top.mem_d_error_w
-@1401200
+@22
+tb_top.u_dut.mmu_lsu_addr_w[31:0]
+@28
+tb_top.u_dut.use_vlsu_w
+tb_top.u_dut.vlsu_active_q
+tb_top.u_dut.v_lsu_opcode_valid_w
+tb_top.u_dut.u_issue.enable_vector_operations
+tb_top.u_dut.u_issue.opcode_a_issue_r
+tb_top.u_dut.u_issue.issue_a_v_lsu_w
+tb_top.u_dut.u_issue.fetch0_valid_i
+@22
+tb_top.u_dut.u_issue.fetch1_instr_i[31:0]
+@28
+tb_top.u_dut.u_issue.fetch1_instr_v_lsu_i
+tb_top.u_dut.u_frontend.u_decode.fetch_out1_instr_lsu_v_o
+@29
+tb_top.u_dut.fetch1_instr_v_lsu_w
+@28
+tb_top.u_dut.u_frontend.fetch1_instr_lsu_v_o
+tb_top.u_dut.u_issue.fetch1_instr_v_lsu_i
+tb_top.u_dut.u_issue.fetch1_valid_i
+tb_top.u_dut.u_issue.fetch0_instr_v_lsu_i
+@22
+tb_top.u_dut.u_issue.fetch0_instr_i[31:0]
+tb_top.u_dut.vlsu_mem_addr_w[31:0]
+@1000200
 -D
 @c00200
 -V_LSU

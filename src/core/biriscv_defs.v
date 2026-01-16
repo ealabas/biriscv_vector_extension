@@ -49,6 +49,7 @@
 `define ALU_VMINUVX                             4'b0110
 `define ALU_VMAXUVV                             4'b0111
 `define ALU_VMAXUVX                             4'b1000
+`define ALU_VMULVV                              4'b1001
 
 //--------------------------------------------------------------------
 // Instructions Masks
@@ -99,6 +100,10 @@
 // vmaxu.vx
 `define INST_VMAXU_VX 32'h18004057 // Opcode for vmaxu.vx
 `define INST_VMAXU_VX_MASK 32'hfc00707f // Mask for func3, funct7, and opcode
+
+// vmul.vv
+`define INST_VMUL_VV 32'h94002057 // Opcode for vmul.vv
+`define INST_VMUL_VV_MASK 32'hfc00707f // Mask for func3, funct7, and opcode
 
 // load vector instructions
 
