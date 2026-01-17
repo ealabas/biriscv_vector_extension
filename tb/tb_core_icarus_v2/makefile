@@ -1,7 +1,7 @@
 ###############################################################################
 # Variables: Program ELF
 ###############################################################################
-ELF_FILE ?= s.elf
+ELF_FILE ?= matrixvector.elf
 
 OBJCOPY ?= riscv32-unknown-elf-objcopy
 ifeq ($(shell which $(OBJCOPY)),)

@@ -136,6 +136,7 @@ wire invalid_w =    valid_i &&
                     (enable_vector_extension_i && (opcode_i & `INST_VADD_VI_MASK) == `INST_VADD_VI)     ||
                     (enable_vector_extension_i && (opcode_i & `INST_VADD_VV_MASK) == `INST_VADD_VV)     ||
                     (enable_vector_extension_i && (opcode_i & `INST_VADD_VX_MASK) == `INST_VADD_VX)     ||
+                    (enable_vector_extension_i && (opcode_i & `INST_VMV_V_X_MASK) == `INST_VMV_V_X)     ||
                     (enable_vector_extension_i && (opcode_i & `INST_VSUB_VV_MASK) == `INST_VSUB_VV)     ||
                     (enable_vector_extension_i && (opcode_i & `INST_VSUB_VX_MASK) == `INST_VSUB_VX)     ||
                     (enable_vector_extension_i && (opcode_i & `INST_VRSUB_VI_MASK) == `INST_VRSUB_VI)     ||
@@ -144,7 +145,8 @@ wire invalid_w =    valid_i &&
                     (enable_vector_extension_i && (opcode_i & `INST_VMINU_VX_MASK) == `INST_VMINU_VX)     ||
                     (enable_vector_extension_i && (opcode_i & `INST_VMAXU_VV_MASK) == `INST_VMAXU_VV)     ||
                     (enable_vector_extension_i && (opcode_i & `INST_VMAXU_VX_MASK) == `INST_VMAXU_VX)     ||
-                    (enable_vector_extension_i && (opcode_i & `INST_VMUL_VV_MASK) == `INST_VMUL_VV)
+                    (enable_vector_extension_i && (opcode_i & `INST_VMUL_VV_MASK) == `INST_VMUL_VV)       ||
+                    (enable_vector_extension_i && (opcode_i & `INST_VREDSUM_VS_MASK) == `INST_VREDSUM_VS)
                     );
 
 assign invalid_o = invalid_w;
@@ -277,6 +279,7 @@ assign alu_v_o =    enable_vector_extension_i &&
                     (((opcode_i & `INST_VADD_VI_MASK) == `INST_VADD_VI)   ||
                     ((opcode_i & `INST_VADD_VV_MASK) == `INST_VADD_VV) ||
                     ((opcode_i & `INST_VADD_VX_MASK) == `INST_VADD_VX) ||
+                    ((opcode_i & `INST_VMV_V_X_MASK) == `INST_VMV_V_X) ||
                     ((opcode_i & `INST_VSUB_VV_MASK) == `INST_VSUB_VV) ||
                     ((opcode_i & `INST_VSUB_VX_MASK) == `INST_VSUB_VX)   ||
                     ((opcode_i & `INST_VRSUB_VI_MASK) == `INST_VRSUB_VI) ||
@@ -285,6 +288,7 @@ assign alu_v_o =    enable_vector_extension_i &&
                     ((opcode_i & `INST_VMINU_VX_MASK) == `INST_VMINU_VX)   ||
                     ((opcode_i & `INST_VMAXU_VV_MASK) == `INST_VMAXU_VV) ||
                     ((opcode_i & `INST_VMAXU_VX_MASK) == `INST_VMAXU_VX) ||
-                    ((opcode_i & `INST_VMUL_VV_MASK) == `INST_VMUL_VV));
+                    ((opcode_i & `INST_VMUL_VV_MASK) == `INST_VMUL_VV)   ||
+                    ((opcode_i & `INST_VREDSUM_VS_MASK) == `INST_VREDSUM_VS));
 
 endmodule

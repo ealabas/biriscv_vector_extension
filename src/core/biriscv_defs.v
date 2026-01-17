@@ -65,6 +65,10 @@
 `define INST_VADD_VX 32'h4057 // Opcode for vadd.vx
 `define INST_VADD_VX_MASK 32'hfc00707f // Mask for func3, funct7, and opcode
 
+// vmv.v.x
+`define INST_VMV_V_X 32'h5c004057 // Opcode for vmv.v.x
+`define INST_VMV_V_X_MASK 32'hfc00707f // Mask for func3, funct7, and opcode
+
 // vadd.vi
 `define INST_VADD_VI 32'h3057 // Opcode for vadd.vi
 `define INST_VADD_VI_MASK 32'hfc00707f // Mask for func3, funct7, and opcode
@@ -100,6 +104,10 @@
 // vmaxu.vx
 `define INST_VMAXU_VX 32'h18004057 // Opcode for vmaxu.vx
 `define INST_VMAXU_VX_MASK 32'hfc00707f // Mask for func3, funct7, and opcode
+
+// vredsum.vs
+`define INST_VREDSUM_VS 32'h00002057 // Opcode for vredsum.vs
+`define INST_VREDSUM_VS_MASK 32'hfc00707f // Mask for func3, funct7, and opcode
 
 // vmul.vv
 `define INST_VMUL_VV 32'h94002057 // Opcode for vmul.vv

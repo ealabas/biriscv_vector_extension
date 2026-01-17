@@ -13,7 +13,7 @@ reg [7:0] data;
 reg [63:0] word;
 
 initial begin
-    #100000;
+    #1000000;
 
     fd = $fopen("tcm_dump_words.hex", "w");
 

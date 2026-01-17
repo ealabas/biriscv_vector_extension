@@ -1,10 +1,10 @@
 [*]
 [*] GTKWave Analyzer v3.3.121 (w)1999-2024 BSI
-[*] Fri Jan 16 22:33:41 2026
+[*] Sat Jan 17 09:10:19 2026
 [*]
 [dumpfile] "/home/emo/projects/biriscv_vector_extension/tb/tb_core_icarus_v2/waveform.vcd"
-[dumpfile_mtime] "Fri Jan 16 21:46:40 2026"
-[dumpfile_size] 3482750
+[dumpfile_mtime] "Sat Jan 17 09:10:10 2026"
+[dumpfile_size] 1194856
 [savefile] "/home/emo/projects/biriscv_vector_extension/tb/tb_core_icarus_v2/gtksettings.sav"
 [timestart] 0
 [size] 1920 930
@@ -58,7 +58,7 @@ tb_top.u_dut.u_issue.pipe0_opc_wb_w[31:0]
 tb_top.u_dut.u_issue.pipe0_valid_wb_w
 @1401200
 -Opcodes
-@800200
+@c00200
 -I
 @28
 tb_top.mem_i_rd_w
@@ -68,9 +68,9 @@ tb_top.mem_i_pc_w[31:0]
 tb_top.mem_i_valid_w
 @22
 tb_top.mem_i_inst_w[63:0]
-@1000200
+@1401200
 -I
-@800200
+@c00201
 -D
 @28
 tb_top.mem_d_rd_w
@@ -102,17 +102,14 @@ tb_top.u_dut.u_issue.fetch1_instr_i[31:0]
 @28
 tb_top.u_dut.u_issue.fetch1_instr_v_lsu_i
 tb_top.u_dut.u_frontend.u_decode.fetch_out1_instr_lsu_v_o
-@29
 tb_top.u_dut.fetch1_instr_v_lsu_w
-@28
-tb_top.u_dut.u_frontend.fetch1_instr_lsu_v_o
 tb_top.u_dut.u_issue.fetch1_instr_v_lsu_i
 tb_top.u_dut.u_issue.fetch1_valid_i
 tb_top.u_dut.u_issue.fetch0_instr_v_lsu_i
 @22
 tb_top.u_dut.u_issue.fetch0_instr_i[31:0]
 tb_top.u_dut.vlsu_mem_addr_w[31:0]
-@1000200
+@1401201
 -D
 @c00200
 -V_LSU

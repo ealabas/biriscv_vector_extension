@@ -68,6 +68,7 @@ reg [VLEN - 1:0]  imm4_r;
 reg [VLEN - 1:0]  register_operand_r;
 reg               vm_r;
 reg [VLEN - 1:0]  result_r;
+reg [ELEN - 1:0]  sum_r;
 reg               writeback_valid_q;
 reg [VLEN - 1:0]  writeback_value_q;
 
@@ -81,6 +82,7 @@ end
 wire v_alu_inst_w    = ((opcode_opcode_i & `INST_VADD_VV_MASK) == `INST_VADD_VV)|| 
                       ((opcode_opcode_i & `INST_VADD_VX_MASK) == `INST_VADD_VX)|| 
                       ((opcode_opcode_i & `INST_VADD_VI_MASK) == `INST_VADD_VI)||
+                      ((opcode_opcode_i & `INST_VMV_V_X_MASK) == `INST_VMV_V_X)||
                       ((opcode_opcode_i & `INST_VSUB_VV_MASK) == `INST_VSUB_VV)||
                       ((opcode_opcode_i & `INST_VSUB_VX_MASK) == `INST_VSUB_VX)||
                       ((opcode_opcode_i & `INST_VRSUB_VX_MASK) == `INST_VRSUB_VX)||
@@ -89,11 +91,13 @@ wire v_alu_inst_w    = ((opcode_opcode_i & `INST_VADD_VV_MASK) == `INST_VADD_VV)
                       ((opcode_opcode_i & `INST_VMINU_VX_MASK) == `INST_VMINU_VX)||
                       ((opcode_opcode_i & `INST_VMAXU_VV_MASK) == `INST_VMAXU_VV)||
                       ((opcode_opcode_i & `INST_VMAXU_VX_MASK) == `INST_VMAXU_VX)||
-                      ((opcode_opcode_i & `INST_VMUL_VV_MASK) == `INST_VMUL_VV);
+                      ((opcode_opcode_i & `INST_VMUL_VV_MASK) == `INST_VMUL_VV)||
+                      ((opcode_opcode_i & `INST_VREDSUM_VS_MASK) == `INST_VREDSUM_VS);
 
 always @ *
 begin
     result_r = {VLEN{1'b0}};
+    sum_r = {ELEN{1'b0}};
     if ((opcode_opcode_i & `INST_VADD_VV_MASK) == `INST_VADD_VV) // vadd.vv
     begin
         if (vm_r == 1'b1) begin
@@ -117,6 +121,19 @@ begin
         else begin
             for (i = 0; i < VLEN / ELEN; i = i + 1) begin
                 result_r[(i+1)*ELEN-1 -: ELEN] = opcode_vmask_operand_i[i * ELEN] ? opcode_va_operand_i[(i+1)*ELEN-1 -: ELEN] + register_operand_r[ELEN - 1 : 0] : {ELEN{1'b0}};
+            end
+        end
+    end
+    else if ((opcode_opcode_i & `INST_VMV_V_X_MASK) == `INST_VMV_V_X) // vmv.v.x
+    begin
+        if (vm_r == 1'b1) begin
+            for (i = 0; i < VLEN / ELEN; i = i + 1) begin
+                result_r[(i+1)*ELEN-1 -: ELEN] = register_operand_r[ELEN - 1 : 0];
+            end
+        end
+        else begin
+            for (i = 0; i < VLEN / ELEN; i = i + 1) begin
+                result_r[(i+1)*ELEN-1 -: ELEN] = opcode_vmask_operand_i[i * ELEN] ? register_operand_r[ELEN - 1 : 0] : {ELEN{1'b0}};
             end
         end
     end
@@ -275,6 +292,23 @@ begin
                                                 : {ELEN{1'b0}};
             end
         end
+    end
+    else if ((opcode_opcode_i & `INST_VREDSUM_VS_MASK) == `INST_VREDSUM_VS) // vredsum.vs
+    begin
+        result_r = opcode_va_operand_i;
+        sum_r = opcode_va_operand_i[ELEN - 1 : 0];
+        if (vm_r == 1'b1) begin
+            for (i = 0; i < VLEN / ELEN; i = i + 1) begin
+                sum_r = sum_r + opcode_vb_operand_i[(i+1)*ELEN-1 -: ELEN];
+            end
+        end
+        else begin
+            for (i = 0; i < VLEN / ELEN; i = i + 1) begin
+                if (opcode_vmask_operand_i[i * ELEN])
+                    sum_r = sum_r + opcode_vb_operand_i[(i+1)*ELEN-1 -: ELEN];
+            end
+        end
+        result_r[ELEN - 1 : 0] = sum_r;
     end
 end
 

@@ -180,8 +180,6 @@ wire branch_misaligned_w = (issue_branch_taken_i && issue_branch_target_i[1:0] !
 `define PCINFO_INTR      8
 `define PCINFO_COMPLETE  9
 
-`define len 128
-
 `define RD_IDX_R    11:7
 `define VD_IDX_R    11:7 // new
 
@@ -208,9 +206,9 @@ begin
     operand_ra_e1_q <= 32'b0;
     operand_rb_e1_q <= 32'b0;
     exception_e1_q  <= `EXCEPTION_W'b0;
-    operand_va_e1_q <= `len'b0; // new
-    operand_vb_e1_q <= `len'b0; // new
-    mask_vm_e1_q    <= `len'b0; // new
+    operand_va_e1_q <= {VLEN{1'b0}}; // new
+    operand_vb_e1_q <= {VLEN{1'b0}}; // new
+    mask_vm_e1_q    <= {VLEN{1'b0}}; // new
 end
 // Stall - no change in E1 state
 else if (issue_stall_i)
@@ -256,9 +254,9 @@ begin
     operand_ra_e1_q <= 32'b0;
     operand_rb_e1_q <= 32'b0;
     exception_e1_q  <= `EXCEPTION_W'b0;
-    operand_va_e1_q <= `len'b0; // new
-    operand_vb_e1_q <= `len'b0; // new
-    mask_vm_e1_q    <= `len'b0; // new
+    operand_va_e1_q <= {VLEN{1'b0}}; // new
+    operand_vb_e1_q <= {VLEN{1'b0}}; // new
+    mask_vm_e1_q    <= {VLEN{1'b0}}; // new
 end
 
 wire   alu_e1_w        = ctrl_e1_q[`PCINFO_ALU];
@@ -317,10 +315,10 @@ begin
     operand_rb_e2_q <= 32'b0;
     result_e2_q     <= 32'b0;
     exception_e2_q  <= `EXCEPTION_W'b0;
-    operand_va_e2_q <= `len'b0; // new
-    operand_vb_e2_q <= `len'b0; // new
-    mask_vm_e2_q    <= `len'b0; // new
-    v_alu_result_e2_q <= `len'b0; // new
+    operand_va_e2_q <= {VLEN{1'b0}}; // new
+    operand_vb_e2_q <= {VLEN{1'b0}}; // new
+    mask_vm_e2_q    <= {VLEN{1'b0}}; // new
+    v_alu_result_e2_q <= {VLEN{1'b0}}; // new
 end
 // Stall - no change in E2 state
 else if (issue_stall_i)
@@ -339,10 +337,10 @@ begin
     operand_rb_e2_q <= 32'b0;
     result_e2_q     <= 32'b0;
     exception_e2_q  <= `EXCEPTION_W'b0;
-    operand_va_e2_q <= `len'b0; // new
-    operand_vb_e2_q <= `len'b0; // new
-    mask_vm_e2_q    <= `len'b0; // new
-    v_alu_result_e2_q <= `len'b0; // new    
+    operand_va_e2_q <= {VLEN{1'b0}}; // new
+    operand_vb_e2_q <= {VLEN{1'b0}}; // new
+    mask_vm_e2_q    <= {VLEN{1'b0}}; // new
+    v_alu_result_e2_q <= {VLEN{1'b0}}; // new    
 end
 // Normal pipeline advance
 else
@@ -359,7 +357,7 @@ begin
     operand_va_e2_q <= operand_va_e1_q; // new
     operand_vb_e2_q <= operand_vb_e1_q; // new
     mask_vm_e2_q    <= mask_vm_e1_q; // new
-    v_alu_result_e2_q <= `len'b0; // new
+    v_alu_result_e2_q <= {VLEN{1'b0}}; // new
 
     // Launch interrupt
     if (ctrl_e1_q[`PCINFO_INTR])
@@ -473,10 +471,10 @@ begin
     operand_rb_wb_q <= 32'b0;
     result_wb_q     <= 32'b0;
     exception_wb_q  <= `EXCEPTION_W'b0;
-    v_alu_result_wb_q <= `len'b0; // new
-    operand_va_wb_q <= `len'b0; // new
-    operand_vb_wb_q <= `len'b0; // new
-    mask_vm_wb_q    <= `len'b0; // new
+    v_alu_result_wb_q <= {VLEN{1'b0}}; // new
+    operand_va_wb_q <= {VLEN{1'b0}}; // new
+    operand_vb_wb_q <= {VLEN{1'b0}}; // new
+    mask_vm_wb_q    <= {VLEN{1'b0}}; // new
 end
 // Stall - no change in WB state
 else if (issue_stall_i)
@@ -494,10 +492,10 @@ begin
     operand_rb_wb_q <= 32'b0;
     result_wb_q     <= 32'b0;
     exception_wb_q  <= `EXCEPTION_W'b0;
-    v_alu_result_wb_q <= `len'b0; // new
-    operand_va_wb_q <= `len'b0; // new
-    operand_vb_wb_q <= `len'b0; // new
-    mask_vm_wb_q    <= `len'b0; // new
+    v_alu_result_wb_q <= {VLEN{1'b0}}; // new
+    operand_va_wb_q <= {VLEN{1'b0}}; // new
+    operand_vb_wb_q <= {VLEN{1'b0}}; // new
+    mask_vm_wb_q    <= {VLEN{1'b0}}; // new
 end
 else
 begin

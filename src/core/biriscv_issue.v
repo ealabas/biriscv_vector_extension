@@ -1215,7 +1215,7 @@ assign opcode0_ra_operand_o = issue_a_ra_value_r;
 assign opcode0_rb_operand_o = issue_a_rb_value_r;
 assign opcode0_va_operand_o = issue_a_va_value_r; // new
 assign opcode0_vb_operand_o = issue_a_vb_value_r; // new
-assign opcode0_vmask_operand_o = 128'b0;
+assign opcode0_vmask_operand_o = {VLEN{1'b0}};
 
 //-------------------------------------------------------------
 // Issue Slot 1
