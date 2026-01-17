@@ -790,6 +790,7 @@ reg v_alu_pending_q; // new
 reg v_lsu_pending_q; // new
 reg [4:0] v_lsu_dest_q; // new
 reg v_lsu_complete_d; // new
+reg v_lsu_is_load_q; // new
 
 // Division operations take 2 - 34 cycles and stall
 // the pipeline (complete out-of-pipe) until completed.
@@ -830,22 +831,35 @@ else if (writeback_v_alu_valid_i)
     v_alu_pending_q <= 1'b0;
 
 // Vector LSU operations are multi-cycle; block dependent ops until completion.
+wire v_lsu_is_load_w = (((v_lsu_opcode_opcode_o & `INST_VLE8_V_MASK)  == `INST_VLE8_V)  ||
+                        ((v_lsu_opcode_opcode_o & `INST_VLE16_V_MASK) == `INST_VLE16_V) ||
+                        ((v_lsu_opcode_opcode_o & `INST_VLE32_V_MASK) == `INST_VLE32_V) ||
+                        ((v_lsu_opcode_opcode_o & `INST_VLE64_V_MASK) == `INST_VLE64_V));
+
 always @ (posedge clk_i or posedge rst_i)
 if (rst_i)
 begin
     v_lsu_pending_q <= 1'b0;
     v_lsu_dest_q    <= 5'b0;
     v_lsu_complete_d <= 1'b0;
+    v_lsu_is_load_q <= 1'b0;
 end
 else if (pipe0_squash_e1_e2_w || pipe1_squash_e1_e2_w)
+begin
     v_lsu_pending_q <= 1'b0;
+    v_lsu_is_load_q <= 1'b0;
+end
 else if (v_lsu_opcode_valid_o)
 begin
     v_lsu_pending_q <= 1'b1;
     v_lsu_dest_q    <= v_lsu_opcode_vd_idx_o;
+    v_lsu_is_load_q <= v_lsu_is_load_w;
 end
 else if (v_lsu_complete_d)
+begin
     v_lsu_pending_q <= 1'b0;
+    v_lsu_is_load_q <= 1'b0;
+end
 
 always @ (posedge clk_i or posedge rst_i)
 if (rst_i)
@@ -1049,7 +1063,7 @@ wire [VLEN-1:0] issue_b_vb_value_w;
 
 // Gate writeback into the vector regfile so we don't clobber registers when no valid vector writeback is present
 wire        vreg_wr0_vec_alu_w = pipe0_v_alu_wb_w;
-wire        vreg_wr0_vlsu_w    = writeback_v_lsu_valid_i;
+wire        vreg_wr0_vlsu_w    = writeback_v_lsu_valid_i & v_lsu_is_load_q;
 wire [4:0]  vreg_wr0_idx_w     = vreg_wr0_vlsu_w ? writeback_v_lsu_vd_idx_i :
                                  vreg_wr0_vec_alu_w ? pipe0_vd_wb_w : 5'd0;
 wire [VLEN-1:0] vreg_wr0_val_w = vreg_wr0_vlsu_w ? writeback_v_lsu_value_i :
@@ -1140,9 +1154,9 @@ begin
     end
 
     // Bypass from VLSU writeback
-    if (writeback_v_lsu_valid_i && (writeback_v_lsu_vd_idx_i == issue_a_va_idx_w))
+    if (writeback_v_lsu_valid_i && v_lsu_is_load_q && (writeback_v_lsu_vd_idx_i == issue_a_va_idx_w))
         issue_a_va_value_r = writeback_v_lsu_value_i;
-    if (writeback_v_lsu_valid_i && (writeback_v_lsu_vd_idx_i == issue_a_vsrc_idx_w))
+    if (writeback_v_lsu_valid_i && v_lsu_is_load_q && (writeback_v_lsu_vd_idx_i == issue_a_vsrc_idx_w))
         issue_a_vb_value_r = writeback_v_lsu_value_i;
 
     // Bypass - E2
@@ -1269,9 +1283,9 @@ begin
         issue_b_vb_value_r = pipe1_v_alu_result_wb_w;
 
     // Bypass from VLSU writeback
-    if (writeback_v_lsu_valid_i && (writeback_v_lsu_vd_idx_i == issue_b_va_idx_w))
+    if (writeback_v_lsu_valid_i && v_lsu_is_load_q && (writeback_v_lsu_vd_idx_i == issue_b_va_idx_w))
         issue_b_va_value_r = writeback_v_lsu_value_i;
-    if (writeback_v_lsu_valid_i && (writeback_v_lsu_vd_idx_i == issue_b_vb_idx_w))
+    if (writeback_v_lsu_valid_i && v_lsu_is_load_q && (writeback_v_lsu_vd_idx_i == issue_b_vb_idx_w))
         issue_b_vb_value_r = writeback_v_lsu_value_i;
 
     // Bypass - E2
